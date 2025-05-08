@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { tmpdir } from "os";
 import path from "path";
 interface Message {
