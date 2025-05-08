@@ -1,6 +1,6 @@
 {
   "name": "bun-inspect-echo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A debugging tool that captures and displays the inspector protocol messages for Bun processes",
   "module": "index.ts",
   "type": "module",

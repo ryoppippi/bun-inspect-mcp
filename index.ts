@@ -230,6 +230,18 @@ const proc = Bun.spawn({
   },
 });
 
+proc.exited.then(
+  (exitCode) => {
+    setTimeout(() => {
+      process.exit(exitCode);
+    }, 1);
+  },
+  (error) => {
+    console.error(error);
+    process.exit(1);
+  }
+);
+
 // Connect to the inspector socket using Unix domain socket
 const session = new Inspector();
 const socket = await socketPromise;
@@ -244,6 +256,3 @@ socket.data = {
 
 await session.enable();
 await session.initialize();
-
-const exitCode = await proc.exited;
-process.exit(exitCode);
