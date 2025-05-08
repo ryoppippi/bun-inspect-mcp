@@ -1,0 +1,43 @@
+{
+  "name": "bun-inspect-echo",
+  "version": "0.1.0",
+  "description": "A debugging tool that captures and displays the inspector protocol messages for Bun processes",
+  "module": "index.ts",
+  "type": "module",
+  "bin": {
+    "bun-inspect-echo": "index.ts"
+  },
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "scripts": {
+    "dev": "bun index.ts"
+  },
+  "keywords": [
+    "bun",
+    "inspector",
+    "debugger",
+    "debug",
+    "devtools",
+    "dev-tools",
+    "protocol"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/bun-inspect-echo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/username/bun-inspect-echo/issues"
+  },
+  "homepage": "https://github.com/username/bun-inspect-echo#readme",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}
