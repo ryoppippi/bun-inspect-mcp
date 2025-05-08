@@ -256,3 +256,4 @@ socket.data = {
 
 await session.enable();
 await session.initialize();
+session.unref();
