@@ -15,7 +15,8 @@
     "bun": ">=1.0.0"
   },
   "scripts": {
-    "dev": "bun index.ts"
+    "dev": "bun index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "bun",
@@ -39,5 +40,11 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/mcp": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.15.1",
+    "hono": "^4.8.4",
+    "zod": "^3.23.8"
   }
 }

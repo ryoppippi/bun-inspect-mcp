@@ -1,7 +1,14 @@
 #!/usr/bin/env bun
 
-import { tmpdir } from "os";
-import path from "path";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import process from "node:process";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Hono } from "hono";
+import { StreamableHTTPTransport } from "@hono/mcp";
+import { z } from "zod/v3";
+import { remoteObjectToString } from "./preview";
+
 interface Message {
   id?: number;
   method?: string;
@@ -124,6 +131,15 @@ export class InspectorSession {
 
   onMessage(data: string) {
     console.log(data);
+    try {
+      const message = JSON.parse(data);
+      if (message.id && this.messageCallbacks.has(message.id)) {
+        const callback = this.messageCallbacks.get(message.id);
+        callback!(message);
+      }
+    } catch (e) {
+      console.error("Failed to parse message:", e);
+    }
   }
 
   send(method: string, params: any = {}) {
@@ -131,6 +147,21 @@ export class InspectorSession {
     const id = this.nextId++;
     const message = { id, method, params };
     this.framer.send(this.socket as any, JSON.stringify(message));
+  }
+
+  sendWithCallback(method: string, params: any = {}): Promise<any> {
+    if (!this.framer) throw new Error("Socket not connected");
+    const id = this.nextId++;
+    
+    return new Promise((resolve) => {
+      this.messageCallbacks.set(id, ({ result }) => {
+        this.messageCallbacks.delete(id);
+        resolve(result);
+      });
+      
+      const message = { id, method, params };
+      this.framer.send(this.socket as any, JSON.stringify(message));
+    });
   }
 
   addEventListener(method: string, callback: (params: any) => void) {
@@ -220,6 +251,49 @@ async function connect(
   return await promise;
 }
 
+const mcp = new McpServer({
+  name: `mcp server for bun inspector`,
+  version: Bun.version,
+})
+
+mcp.registerTool(
+    "Runtime.evaluate",
+    {
+      title: "runtime evaluate",
+      description: "Evaluate JavaScript code in BUN runtime",
+      inputSchema: {
+        expression: z.string().min(1).describe("JavaScript code to evaluate"),
+        returnByValue: z.boolean().optional().default(true).describe("Return result by value instead of reference"),
+      },
+    },
+  async ({ expression , returnByValue}) => {
+        const result = await session.sendWithCallback("Runtime.evaluate", {
+          expression,
+          returnByValue: returnByValue,
+        } satisfies JSC.Runtime.EvaluateRequest);
+        const resultString = remoteObjectToString(result.result, true);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                ...result,
+                resultString,
+              })
+            },
+          ],
+        };
+  }
+)
+
+const app = new Hono();
+app.all("/mcp", async c => {
+  const transport = new StreamableHTTPTransport();
+  await mcp.connect(transport);
+  return transport.handleRequest(c);
+});
+
+
 const url = "unix://" + randomUnixPath();
 const socketPromise = connect(url);
 const proc = Bun.spawn({
@@ -257,3 +331,11 @@ socket.data = {
 await session.enable();
 await session.initialize();
 session.unref();
+
+const port = 4000;
+console.log(`MCP server listening on http://localhost:${port}/mcp`);
+
+Bun.serve({
+  fetch: app.fetch,
+  port,
+})
