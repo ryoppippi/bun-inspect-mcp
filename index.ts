@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { StreamableHTTPTransport } from "@hono/mcp";
 import { z } from "zod/v3";
 import { remoteObjectToString } from "./preview";
+import type { JSC } from './types.ts'
 
 interface Message {
   id?: number;
@@ -19,6 +20,8 @@ interface Message {
 interface Socket<T = any> {
   data: T;
   write(data: string | Buffer): void;
+  unref?(): void;
+  ref?(): void;
 }
 
 const enum FramerState {
@@ -160,7 +163,7 @@ export class InspectorSession {
       });
       
       const message = { id, method, params };
-      this.framer.send(this.socket as any, JSON.stringify(message));
+      this.framer!.send(this.socket as any, JSON.stringify(message));
     });
   }
 
@@ -280,6 +283,64 @@ mcp.registerTool(
                 ...result,
                 resultString,
               })
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger.evaluateOnCallFrame",
+    {
+      title: "debugger evaluate on call frame",
+      description: "Evaluate JavaScript code on a specific call frame (for debugging paused code)",
+      inputSchema: {
+        callFrameId: z.string().describe("Call frame identifier to evaluate expression on"),
+        expression: z.string().min(1).describe("JavaScript code to evaluate in the context of the call frame"),
+        returnByValue: z.boolean().optional().default(true).describe("Return result by value instead of reference"),
+        generatePreview: z.boolean().optional().default(true).describe("Whether preview should be generated for the result"),
+      },
+    },
+  async ({ callFrameId, expression, returnByValue, generatePreview  }) => {
+        const result = await session.sendWithCallback("Debugger.evaluateOnCallFrame", {
+          callFrameId,
+          expression,
+          returnByValue,
+          generatePreview,
+        } satisfies JSC.Debugger.EvaluateOnCallFrameRequest)
+        
+        if (result.result) {
+          const resultString = remoteObjectToString(result.result, true);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  ...result,
+                  resultString,
+                })
+              },
+            ],
+          };
+        } else if (result.exceptionDetails) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: "Exception occurred during evaluation",
+                  exceptionDetails: result.exceptionDetails,
+                })
+              },
+            ],
+          };
+        }
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result)
             },
           ],
         };
