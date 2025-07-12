@@ -471,6 +471,129 @@ mcp.registerTool(
   }
 )
 
+mcp.registerTool(
+    "Debugger_setBreakpoint",
+    {
+      title: "Set JavaScript Breakpoint",
+      description: "Sets a JavaScript breakpoint at a specific location in the code. The breakpoint will pause execution when the specified line is reached. Supports conditional breakpoints, actions to perform when hit, and auto-continue behavior. Use this for debugging specific code locations when you know the exact script and line number.",
+      inputSchema: {
+        scriptId: z.string().describe("Script identifier as reported in Debugger.scriptParsed event. This identifies which script file to set the breakpoint in"),
+        lineNumber: z.number().describe("Line number in the script (0-based) where the breakpoint should be set"),
+        columnNumber: z.number().optional().describe("Column number in the script (0-based) for more precise breakpoint placement. Optional - if not specified, breakpoint will be at the start of the line"),
+        condition: z.string().optional().describe("JavaScript expression to use as breakpoint condition. Debugger will only pause if this evaluates to true (e.g., 'x > 10', 'typeof foo === \"string\"')"),
+        autoContinue: z.boolean().optional().default(false).describe("Automatically continue execution after hitting this breakpoint and running any actions. Useful for logging without pausing"),
+        actions: z.array(z.object({
+          type: z.enum(["log", "evaluate", "sound", "probe"]).describe("Type of action to perform when breakpoint is hit"),
+          data: z.string().optional().describe("Data for the action (e.g., message to log for 'log' type, JavaScript to evaluate for 'evaluate' type)"),
+        })).optional().describe("Actions to perform when the breakpoint is triggered"),
+      },
+    },
+  async ({ scriptId, lineNumber, columnNumber, condition, autoContinue, actions }) => {
+        const location: JSC.Debugger.Location = {
+          scriptId,
+          lineNumber,
+          columnNumber,
+        };
+        
+        const options: JSC.Debugger.BreakpointOptions = {};
+        if (condition) options.condition = condition;
+        if (autoContinue) options.autoContinue = autoContinue;
+        if (actions) options.actions = actions;
+        
+        const result = await session.sendWithCallback("Debugger.setBreakpoint", {
+          location,
+          options: Object.keys(options).length > 0 ? options : undefined,
+        } satisfies JSC.Debugger.SetBreakpointRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                breakpointId: result.breakpointId,
+                actualLocation: result.actualLocation,
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_setBreakpointByUrl",
+    {
+      title: "Set Breakpoint by URL",
+      description: "Sets JavaScript breakpoint at given location specified by URL or URL regex pattern. This is useful when you don't have the scriptId but know the file path or URL pattern. The breakpoint will persist across page reloads and apply to all matching scripts.",
+      inputSchema: {
+        lineNumber: z.number().describe("Line number (0-based) to set breakpoint at in the matching file(s)"),
+        url: z.string().optional().describe("Exact URL of the resource to set breakpoint on (e.g., 'file:///path/to/script.js', 'http://localhost:3000/app.js')"),
+        urlRegex: z.string().optional().describe("Regex pattern for URLs to set breakpoints on (e.g., '.*\\.js$' for all JS files, '.*/components/.*' for files in components folder). Either url or urlRegex must be specified"),
+        columnNumber: z.number().optional().describe("Column offset (0-based) in the line to set breakpoint at. Optional - if not specified, breakpoint will be at the start of the line"),
+        condition: z.string().optional().describe("JavaScript expression to use as breakpoint condition. Debugger will only pause if this evaluates to true"),
+        autoContinue: z.boolean().optional().default(false).describe("Automatically continue execution after hitting this breakpoint and running any actions"),
+      },
+    },
+  async ({ lineNumber, url, urlRegex, columnNumber, condition, autoContinue }) => {
+        if (!url && !urlRegex) {
+          throw new Error("Either 'url' or 'urlRegex' must be specified");
+        }
+        
+        const options: JSC.Debugger.BreakpointOptions = {};
+        if (condition) options.condition = condition;
+        if (autoContinue) options.autoContinue = autoContinue;
+        
+        const result = await session.sendWithCallback("Debugger.setBreakpointByUrl", {
+          lineNumber,
+          url,
+          urlRegex,
+          columnNumber,
+          options: Object.keys(options).length > 0 ? options : undefined,
+        } satisfies JSC.Debugger.SetBreakpointByUrlRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                breakpointId: result.breakpointId,
+                locations: result.locations,
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_removeBreakpoint",
+    {
+      title: "Remove Breakpoint",
+      description: "Removes a previously set JavaScript breakpoint using its identifier. Use this to clean up breakpoints that are no longer needed.",
+      inputSchema: {
+        breakpointId: z.string().describe("Breakpoint identifier returned by setBreakpoint or setBreakpointByUrl when the breakpoint was created"),
+      },
+    },
+  async ({ breakpointId }) => {
+        await session.sendWithCallback("Debugger.removeBreakpoint", {
+          breakpointId,
+        } satisfies JSC.Debugger.RemoveBreakpointRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: `Breakpoint ${breakpointId} removed successfully`,
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
 const app = new Hono();
 app.all("/mcp", async c => {
   const transport = new StreamableHTTPTransport();
