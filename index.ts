@@ -340,9 +340,9 @@ mcp.registerTool(
     "Debugger_evaluateOnCallFrame",
     {
       title: "Evaluate Code on Debugger Call Frame",
-      description: "Execute JavaScript expressions within a specific call frame context when the debugger is paused. This powerful debugging tool allows you to inspect and manipulate variables, call functions, and evaluate expressions in the exact scope where execution is paused. Essential for debugging breakpoints, examining local variables, testing fixes, and understanding program state at specific execution points.",
+      description: "Execute JavaScript expressions within a specific call frame context when the debugger is paused. IMPORTANT: This tool only works when the debugger is paused at a breakpoint or after calling Debugger_pause. First set a breakpoint using Debugger_setBreakpointByUrl or Debugger_setBreakpoint, then when execution pauses, you'll receive a callFrameId in the pause event. Use that callFrameId with this tool to inspect variables, evaluate expressions, and manipulate state in the paused context.",
       inputSchema: {
-        callFrameId: z.string().describe("Call frame identifier from the debugger pause stack (obtained from Debugger.paused event). Each frame represents a function call in the stack trace"),
+        callFrameId: z.string().describe("Call frame identifier from the debugger pause event. The debugger must be paused (at a breakpoint or via Debugger_pause) to obtain this ID from the callFrames array in the pause event"),
         expression: z.string().min(1).describe("JavaScript code to evaluate within the call frame's scope (e.g., 'localVariable', 'this.property', 'myFunction()', 'arguments[0]')"),
         returnByValue: z.boolean().optional().default(true).describe("Return primitive values and serializable objects directly (true) or return complex objects as remote object references (false)"),
         generatePreview: z.boolean().optional().default(true).describe("Generate a preview for object results, showing property names and values for easier inspection"),
