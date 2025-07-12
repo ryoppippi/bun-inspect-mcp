@@ -2624,6 +2624,21 @@ export namespace JSC {
     };
     
     /**
+     * Client error reported event
+     * @event `BunFrontendDevServer.clientErrorReported`
+     */
+    export type ClientErrorReportedEvent = {
+      /**
+       * The server ID that reported this error
+       */
+      serverId: ServerId;
+      /**
+       * Base64 encoded binary payload containing the processed/remapped client error
+       */
+      clientErrorPayloadBase64: SerializedPayloadBase64;
+    };
+    
+    /**
      * Enables BunFrontendDevServer domain events.
      * @request `BunFrontendDevServer.enable`
      */
@@ -2675,6 +2690,7 @@ export namespace JSC {
     "TestReporter.start": TestReporter.StartEvent;
     "TestReporter.end": TestReporter.EndEvent;
     "BunFrontendDevServer.consoleLog": BunFrontendDevServer.ConsoleLogEvent;
+    "BunFrontendDevServer.clientErrorReported": BunFrontendDevServer.ClientErrorReportedEvent;
   };
   export type RequestMap = {
     "Audit.setup": Audit.SetupRequest;

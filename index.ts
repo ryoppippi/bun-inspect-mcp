@@ -278,6 +278,15 @@ interface ConsoleLogEntry {
 
 const consoleLogs: ConsoleLogEntry[] = [];
 
+// Storage for client errors
+interface ClientErrorEntry {
+  serverId: number;
+  clientErrorPayloadBase64: string;
+  timestamp: Date;
+}
+
+const clientErrors: ClientErrorEntry[] = [];
+
 mcp.registerTool(
     "Runtime_evaluate",
     {
@@ -406,6 +415,62 @@ mcp.registerTool(
   }
 )
 
+mcp.registerTool(
+    "BunFrontendDevServer_getClientErrors",
+    {
+      title: "Retrieve Bun Frontend Dev Server Client Errors",
+      description: "Access client error reports from Bun's Frontend Development Server. This tool captures errors reported by clients via the /_bun/report_error endpoint that have been processed and potentially remapped by the server. Useful for monitoring client-side errors, debugging production issues, and analyzing error patterns. Errors are stored in memory with base64 encoded payloads.",
+      inputSchema: {
+        limit: z.number().optional().default(100).describe("Maximum number of error entries to retrieve, sorted by newest first (default: 100)"),
+        serverId: z.number().optional().describe("Filter errors by specific server instance ID. Useful when running multiple dev servers or after server restarts"),
+        decode: z.boolean().optional().default(false).describe("Decode the base64 error payloads to readable format (default: false)"),
+      },
+    },
+  async ({ limit, serverId, decode }) => {
+        let errors = [...clientErrors];
+        
+        // Apply filters
+        if (serverId !== undefined) {
+          errors = errors.filter(error => error.serverId === serverId);
+        }
+        
+        // Sort by newest first and limit
+        errors = errors.slice(-limit).reverse();
+        
+        // Optionally decode payloads
+        const processedErrors = errors.map(error => {
+          if (decode) {
+            try {
+              const decoded = Buffer.from(error.clientErrorPayloadBase64, 'base64').toString('utf-8');
+              return {
+                ...error,
+                decodedPayload: decoded
+              };
+            } catch (e) {
+              return {
+                ...error,
+                decodedPayload: `Failed to decode: ${e}`
+              };
+            }
+          }
+          return error;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                count: processedErrors.length,
+                totalCount: clientErrors.length,
+                errors: processedErrors
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
 const app = new Hono();
 app.all("/mcp", async c => {
   const transport = new StreamableHTTPTransport();
@@ -458,6 +523,15 @@ session.addEventListener("BunFrontendDevServer.consoleLog", (params: JSC.BunFron
     serverId: params.serverId,
     kind: params.kind,
     message: params.message,
+    timestamp: new Date()
+  });
+});
+
+// Add event listener for client errors
+session.addEventListener("BunFrontendDevServer.clientErrorReported", (params: JSC.BunFrontendDevServer.ClientErrorReportedEvent) => {
+  clientErrors.push({
+    serverId: params.serverId,
+    clientErrorPayloadBase64: params.clientErrorPayloadBase64,
     timestamp: new Date()
   });
 });
