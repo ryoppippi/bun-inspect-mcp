@@ -494,9 +494,9 @@ mcp.registerTool(
     "Debugger_setBreakpoint",
     {
       title: "Set JavaScript Breakpoint",
-      description: "Sets a JavaScript breakpoint at a specific location in the code. The breakpoint will pause execution when the specified line is reached. Supports conditional breakpoints, actions to perform when hit, and auto-continue behavior. Use this for debugging specific code locations when you know the exact script and line number.",
+      description: "Sets a JavaScript breakpoint at a specific location in the code. IMPORTANT: You need to know the scriptId before using this tool. Use Debugger_getScripts to list all available scripts and their IDs, or use Debugger_setBreakpointByUrl if you know the file URL but not the scriptId. The breakpoint will pause execution when the specified line is reached. Supports conditional breakpoints, actions to perform when hit, and auto-continue behavior.",
       inputSchema: {
-        scriptId: z.string().describe("Script identifier as reported in Debugger.scriptParsed event. This identifies which script file to set the breakpoint in"),
+        scriptId: z.string().describe("Script identifier obtained from Debugger_getScripts tool or Debugger.scriptParsed event. This identifies which script file to set the breakpoint in"),
         lineNumber: z.number().describe("Line number in the script (0-based) where the breakpoint should be set"),
         columnNumber: z.number().optional().describe("Column number in the script (0-based) for more precise breakpoint placement. Optional - if not specified, breakpoint will be at the start of the line"),
         condition: z.string().optional().describe("JavaScript expression to use as breakpoint condition. Debugger will only pause if this evaluates to true (e.g., 'x > 10', 'typeof foo === \"string\"')"),
@@ -543,7 +543,7 @@ mcp.registerTool(
     "Debugger_setBreakpointByUrl",
     {
       title: "Set Breakpoint by URL",
-      description: "Sets JavaScript breakpoint at given location specified by URL or URL regex pattern. This is useful when you don't have the scriptId but know the file path or URL pattern. The breakpoint will persist across page reloads and apply to all matching scripts.",
+      description: "Sets JavaScript breakpoint at given location specified by URL or URL regex pattern. This is the PREFERRED METHOD when you don't have the scriptId - you can set breakpoints using just the file path without needing to call Debugger_getScripts first. The breakpoint will persist across page reloads and apply to all matching scripts. Use this instead of Debugger_setBreakpoint when you know the file name/path.",
       inputSchema: {
         lineNumber: z.number().describe("Line number (0-based) to set breakpoint at in the matching file(s)"),
         url: z.string().optional().describe("Exact URL of the resource to set breakpoint on (e.g., 'file:///path/to/script.js', 'http://localhost:3000/app.js')"),
@@ -788,9 +788,9 @@ mcp.registerTool(
     "Debugger_getScriptSource",
     {
       title: "Get Script Source Code",
-      description: "Retrieves the source code of a specific JavaScript file by its scriptId. Use this to view the actual code content, which is helpful for setting breakpoints at specific lines or understanding the code structure.",
+      description: "Retrieves the source code of a specific JavaScript file by its scriptId. First use Debugger_getScripts to find the scriptId of the file you want to inspect. This tool is helpful for viewing the actual code content to determine exact line numbers for setting breakpoints or understanding the code structure.",
       inputSchema: {
-        scriptId: z.string().describe("Script identifier from Debugger.getScripts or Debugger.scriptParsed event"),
+        scriptId: z.string().describe("Script identifier obtained from Debugger_getScripts tool. Use that tool first to list available scripts and their IDs"),
       },
     },
   async ({ scriptId }) => {
