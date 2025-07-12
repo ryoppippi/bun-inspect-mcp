@@ -278,7 +278,7 @@ interface ConsoleLogEntry {
 const consoleLogs: ConsoleLogEntry[] = [];
 
 mcp.registerTool(
-    "Runtime.evaluate",
+    "Runtime_evaluate",
     {
       title: "runtime evaluate",
       description: "Evaluate JavaScript code in BUN runtime",
@@ -308,7 +308,7 @@ mcp.registerTool(
 )
 
 mcp.registerTool(
-    "Debugger.evaluateOnCallFrame",
+    "Debugger_evaluateOnCallFrame",
     {
       title: "debugger evaluate on call frame",
       description: "Evaluate JavaScript code on a specific call frame (for debugging paused code)",
@@ -366,10 +366,10 @@ mcp.registerTool(
 )
 
 mcp.registerTool(
-    "BunFrontendDevServer.getConsoleLogs",
+    "BunFrontendDevServer_getConsoleLogs",
     {
-      title: "Get BunFrontendDevServer console logs",
-      description: "Retrieve console log messages from the BunFrontendDevServer",
+      title: "Get console logs on Frontend Dev Server",
+      description: "Retrieve console log messages from the Frontend Dev Server in Bun",
       inputSchema: {
         limit: z.number().optional().default(100).describe("Maximum number of logs to return (newest first)"),
         serverId: z.number().optional().describe("Filter logs by server ID"),
