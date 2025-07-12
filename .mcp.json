@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "bunx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:4000/mcp"
+      ]
+    }
+  }
+}
