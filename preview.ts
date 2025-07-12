@@ -1,4 +1,4 @@
-import type { JSC } from "../protocol";
+import type { JSC } from "./types.ts";
 
 export function remoteObjectToString(remoteObject: JSC.Runtime.RemoteObject, topLevel?: boolean): string {
   const { type, subtype, value, description, className, preview } = remoteObject;
