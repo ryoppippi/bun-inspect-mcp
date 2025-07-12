@@ -306,6 +306,20 @@ interface ParsedScript {
 
 const parsedScripts: Map<string, ParsedScript> = new Map();
 
+// Storage for backend console messages
+interface BackendConsoleMessage {
+  source: string;
+  level: "log" | "info" | "warning" | "error" | "debug";
+  text: string;
+  type?: string;
+  timestamp: Date;
+  stackTrace?: any;
+  line?: number;
+  column?: number;
+  url?: string;
+}
+const backendConsoleLogs: BackendConsoleMessage[] = [];
+
 mcp.registerTool(
     "Runtime_evaluate",
     {
@@ -734,6 +748,55 @@ mcp.registerTool(
 )
 
 mcp.registerTool(
+    "Console_getBackendLogs",
+    {
+      title: "Retrieve Backend Console Logs",
+      description: "Access console log messages from the backend/server-side Bun process. This tool captures all console outputs (log, info, warning, error, debug) from your backend code running in Bun. Unlike BunFrontendDevServer_getConsoleLogs which captures frontend logs, this captures backend console.log, console.error, etc. calls. Useful for monitoring server-side behavior, debugging backend issues, and analyzing runtime logs.",
+      inputSchema: {
+        limit: z.number().optional().default(100).describe("Maximum number of log entries to retrieve, sorted by newest first (default: 100)"),
+        level: z.enum(["log", "info", "warning", "error", "debug"]).optional().describe("Filter logs by severity level. Leave empty to retrieve all levels"),
+        search: z.string().optional().describe("Search for logs containing this text (case-insensitive)"),
+      },
+    },
+  async ({ limit, level, search }) => {
+        let logs = [...backendConsoleLogs];
+        
+        // Apply filters
+        if (level !== undefined) {
+          logs = logs.filter(log => log.level === level);
+        }
+        if (search !== undefined) {
+          const searchLower = search.toLowerCase();
+          logs = logs.filter(log => log.text.toLowerCase().includes(searchLower));
+        }
+        
+        // Sort by newest first and limit
+        logs = logs.slice(-limit).reverse();
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                count: logs.length,
+                totalCount: backendConsoleLogs.length,
+                logs: logs.map(log => ({
+                  timestamp: log.timestamp,
+                  level: log.level,
+                  text: log.text,
+                  source: log.source,
+                  type: log.type,
+                  location: log.url ? `${log.url}:${log.line || 0}:${log.column || 0}` : undefined,
+                  stackTrace: log.stackTrace
+                }))
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
     "Debugger_getScripts",
     {
       title: "List Parsed Scripts",
@@ -878,6 +941,22 @@ session.addEventListener("BunFrontendDevServer.clientErrorReported", (params: JS
     serverId: params.serverId,
     clientErrorPayloadBase64: params.clientErrorPayloadBase64,
     timestamp: new Date()
+  });
+});
+
+// Add event listener for backend console messages
+session.addEventListener("Console.messageAdded", (params: JSC.Console.MessageAddedEvent) => {
+  const msg = params.message;
+  backendConsoleLogs.push({
+    source: msg.source,
+    level: msg.level,
+    text: msg.text,
+    type: msg.type,
+    timestamp: new Date(),
+    stackTrace: msg.stackTrace,
+    line: msg.line,
+    column: msg.column,
+    url: msg.url
   });
 });
 

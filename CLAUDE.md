@@ -89,12 +89,18 @@ These tools work together to provide full debugging capabilities:
   2. Must have callFrameId from the pause event
 - **Features**: Access to local variables, `this`, arguments, etc.
 
-### 6. Frontend Dev Server Tools
+### 6. Console and Logging Tools
 
 #### `BunFrontendDevServer_getConsoleLogs`
 - **Purpose**: Retrieve console logs from Bun's frontend dev server
-- **When to use**: To monitor application logging without direct console access
+- **When to use**: To monitor frontend/client-side application logging
 - **Features**: Filter by log type, server instance, or limit count
+
+#### `Console_getBackendLogs`
+- **Purpose**: Retrieve console logs from backend/server-side Bun process
+- **When to use**: To monitor backend console.log, console.error, etc. calls
+- **Features**: Filter by severity level, search text, or limit count
+- **Note**: Captures all backend console API calls via Console.messageAdded event
 
 #### `BunFrontendDevServer_getClientErrors`
 - **Purpose**: Retrieve client-side errors reported to the dev server
@@ -130,9 +136,10 @@ These tools work together to provide full debugging capabilities:
 
 ### Monitoring Application
 
-1. **Console logs**: Use `BunFrontendDevServer_getConsoleLogs` periodically
-2. **Client errors**: Use `BunFrontendDevServer_getClientErrors` to check for issues
-3. **Runtime evaluation**: Use `Runtime_evaluate` to check application state
+1. **Frontend console logs**: Use `BunFrontendDevServer_getConsoleLogs` for frontend/client-side logs
+2. **Backend console logs**: Use `Console_getBackendLogs` for backend/server-side logs
+3. **Client errors**: Use `BunFrontendDevServer_getClientErrors` to check for frontend issues
+4. **Runtime evaluation**: Use `Runtime_evaluate` to check application state
 
 ## Important Notes
 
@@ -163,8 +170,9 @@ These tools work together to provide full debugging capabilities:
 
 ### Monitoring logs
 ```
-1. BunFrontendDevServer_getConsoleLogs(limit: 50, kind: "error")
-2. BunFrontendDevServer_getClientErrors(decode: true)
+1. BunFrontendDevServer_getConsoleLogs(limit: 50, kind: "error")  // Frontend logs
+2. Console_getBackendLogs(level: "error", search: "database")      // Backend logs
+3. BunFrontendDevServer_getClientErrors(decode: true)              // Client errors
 ```
 
 This guide should help you effectively use all the debugging and inspection tools available in the Bun Inspector MCP.
