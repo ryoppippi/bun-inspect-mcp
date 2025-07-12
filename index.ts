@@ -287,6 +287,25 @@ interface ClientErrorEntry {
 
 const clientErrors: ClientErrorEntry[] = [];
 
+// Storage for parsed scripts
+interface ParsedScript {
+  scriptId: string;
+  url?: string;
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+  executionContextId?: number;
+  hash?: string;
+  isContentScript?: boolean;
+  isModule?: boolean;
+  sourceMapURL?: string;
+  hasSourceURL?: boolean;
+  length?: number;
+}
+
+const parsedScripts: Map<string, ParsedScript> = new Map();
+
 mcp.registerTool(
     "Runtime_evaluate",
     {
@@ -594,6 +613,209 @@ mcp.registerTool(
   }
 )
 
+mcp.registerTool(
+    "Debugger_pause",
+    {
+      title: "Pause JavaScript Execution",
+      description: "Pauses JavaScript execution at the next available opportunity. This will suspend the debuggee and allow you to inspect the current state, evaluate expressions, and step through code. The debugger will emit a 'paused' event when execution stops.",
+      inputSchema: {},
+    },
+  async () => {
+        await session.sendWithCallback("Debugger.pause", {} satisfies JSC.Debugger.PauseRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: "JavaScript execution paused. Use 'resume' or step commands to continue.",
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_resume",
+    {
+      title: "Resume JavaScript Execution",
+      description: "Resumes JavaScript execution after being paused at a breakpoint or by a pause command. Execution will continue until the next breakpoint, exception, or pause command is encountered.",
+      inputSchema: {},
+    },
+  async () => {
+        await session.sendWithCallback("Debugger.resume", {} satisfies JSC.Debugger.ResumeRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: "JavaScript execution resumed",
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_stepInto",
+    {
+      title: "Step Into Function",
+      description: "Steps into the next function call when paused. If the next statement is a function call, execution will pause at the first line inside that function. If not a function call, behaves like stepOver.",
+      inputSchema: {},
+    },
+  async () => {
+        await session.sendWithCallback("Debugger.stepInto", {} satisfies JSC.Debugger.StepIntoRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: "Stepped into next function call",
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_stepOut",
+    {
+      title: "Step Out of Function",
+      description: "Steps out of the current function when paused. Execution will continue until the current function returns, then pause at the next statement after the function call in the calling function.",
+      inputSchema: {},
+    },
+  async () => {
+        await session.sendWithCallback("Debugger.stepOut", {} satisfies JSC.Debugger.StepOutRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: "Stepped out of current function",
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_stepOver",
+    {
+      title: "Step Over Statement",
+      description: "Steps over the next statement when paused. If the next statement is a function call, the entire function will execute and pause at the next statement after the call. Otherwise, execution pauses at the next statement in the current function.",
+      inputSchema: {},
+    },
+  async () => {
+        await session.sendWithCallback("Debugger.stepOver", {} satisfies JSC.Debugger.StepOverRequest);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message: "Stepped over to next statement",
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_getScripts",
+    {
+      title: "List Parsed Scripts",
+      description: "Lists all JavaScript files that have been parsed by the debugger. This shows available scripts with their IDs, URLs, and locations. Use the scriptId from this list when setting breakpoints or getting script source.",
+      inputSchema: {
+        filter: z.string().optional().describe("Optional filter to search scripts by URL or scriptId"),
+      },
+    },
+  async ({ filter }) => {
+        let scripts = Array.from(parsedScripts.values());
+        
+        // Apply filter if provided
+        if (filter) {
+          const filterLower = filter.toLowerCase();
+          scripts = scripts.filter(script => 
+            script.scriptId.toLowerCase().includes(filterLower) ||
+            (script.url && script.url.toLowerCase().includes(filterLower))
+          );
+        }
+        
+        // Sort by URL for better readability
+        scripts.sort((a, b) => {
+          if (!a.url && !b.url) return 0;
+          if (!a.url) return 1;
+          if (!b.url) return -1;
+          return a.url.localeCompare(b.url);
+        });
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                count: scripts.length,
+                totalCount: parsedScripts.size,
+                scripts: scripts.map(script => ({
+                  scriptId: script.scriptId,
+                  url: script.url || "<anonymous>",
+                  lines: `${script.startLine}-${script.endLine}`,
+                  isModule: script.isModule,
+                  hasSourceMap: !!script.sourceMapURL,
+                  executionContextId: script.executionContextId
+                }))
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
+mcp.registerTool(
+    "Debugger_getScriptSource",
+    {
+      title: "Get Script Source Code",
+      description: "Retrieves the source code of a specific JavaScript file by its scriptId. Use this to view the actual code content, which is helpful for setting breakpoints at specific lines or understanding the code structure.",
+      inputSchema: {
+        scriptId: z.string().describe("Script identifier from Debugger.getScripts or Debugger.scriptParsed event"),
+      },
+    },
+  async ({ scriptId }) => {
+        const result = await session.sendWithCallback("Debugger.getScriptSource", {
+          scriptId,
+        } satisfies JSC.Debugger.GetScriptSourceRequest);
+        
+        const scriptInfo = parsedScripts.get(scriptId);
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                scriptId,
+                url: scriptInfo?.url || "<unknown>",
+                source: result.scriptSource,
+                bytecode: result.bytecode
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
 const app = new Hono();
 app.all("/mcp", async c => {
   const transport = new StreamableHTTPTransport();
@@ -656,6 +878,58 @@ session.addEventListener("BunFrontendDevServer.clientErrorReported", (params: JS
     serverId: params.serverId,
     clientErrorPayloadBase64: params.clientErrorPayloadBase64,
     timestamp: new Date()
+  });
+});
+
+// Add event listener for debugger paused events
+session.addEventListener("Debugger.paused", (params: JSC.Debugger.PausedEvent) => {
+  console.log("Debugger paused:", {
+    reason: params.reason,
+    callFrames: params.callFrames.map(frame => ({
+      functionName: frame.functionName || "<anonymous>",
+      location: `${frame.url || frame.scriptId}:${frame.location.lineNumber}:${frame.location.columnNumber || 0}`,
+      scopeChain: frame.scopeChain.length
+    })),
+    data: params.data
+  });
+});
+
+// Add event listener for debugger resumed events
+session.addEventListener("Debugger.resumed", () => {
+  console.log("Debugger resumed");
+});
+
+// Add event listener for script parsed events (useful for debugging)
+session.addEventListener("Debugger.scriptParsed", (params: JSC.Debugger.ScriptParsedEvent) => {
+  // Store parsed script information
+  const scriptInfo: ParsedScript = {
+    scriptId: params.scriptId,
+    url: params.url,
+    startLine: params.startLine,
+    startColumn: params.startColumn,
+    endLine: params.endLine,
+    endColumn: params.endColumn,
+    executionContextId: params.executionContextId,
+    hash: params.hash,
+    isContentScript: params.isContentScript,
+    isModule: params.isModule,
+    sourceMapURL: params.sourceMapURL,
+    hasSourceURL: params.hasSourceURL,
+    length: params.length
+  };
+  
+  parsedScripts.set(params.scriptId, scriptInfo);
+  
+  console.log("Script parsed:", {
+    scriptId: params.scriptId,
+    url: params.url || "<anonymous>",
+    startLine: params.startLine,
+    startColumn: params.startColumn,
+    endLine: params.endLine,
+    endColumn: params.endColumn,
+    executionContextId: params.executionContextId,
+    hash: params.hash,
+    isModule: params.isModule
   });
 });
 
