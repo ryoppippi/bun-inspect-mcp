@@ -46,17 +46,21 @@ These tools work together to provide full debugging capabilities:
 
 ### 3. Breakpoint Management Tools
 
+**Important**: Breakpoints only work on backend/server-side code executed by Bun. They do not work on frontend/client-side code running in the browser.
+
 #### `Debugger_setBreakpointByUrl` (Recommended)
 - **Purpose**: Set breakpoints using file paths or URL patterns
 - **When to use**: When you know the file path but not the scriptId
 - **Advantages**: No need to find scriptId first, works with file paths directly
 - **Example**: Set breakpoint in `/path/to/file.js` at line 42
+- **Limitation**: Only works for backend code executed by Bun
 
 #### `Debugger_setBreakpoint`
 - **Purpose**: Set breakpoints using scriptId
 - **When to use**: When you have the exact scriptId
 - **Prerequisite**: Must know scriptId (use `Debugger_getScripts` first)
 - **Features**: Supports conditional breakpoints and actions
+- **Limitation**: Only works for backend code executed by Bun
 
 #### `Debugger_removeBreakpoint`
 - **Purpose**: Remove a previously set breakpoint
