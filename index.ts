@@ -263,8 +263,9 @@ async function connect(
 }
 
 const mcp = new McpServer({
-  name: `mcp server for bun inspector`,
-  version: Bun.version,
+  name: `Bun Inspector Protocol MCP Server`,
+  version: `${Bun.version}-inspector`,
+  description: `MCP server providing direct access to Bun's Chrome DevTools Protocol inspector. Enables runtime JavaScript evaluation, debugger integration, and console log monitoring for Bun processes. Automatically spawns Bun with inspector enabled and provides tools for real-time debugging and application introspection.`
 })
 
 // Storage for console logs
@@ -280,11 +281,11 @@ const consoleLogs: ConsoleLogEntry[] = [];
 mcp.registerTool(
     "Runtime_evaluate",
     {
-      title: "runtime evaluate",
-      description: "Evaluate JavaScript code in BUN runtime",
+      title: "Evaluate JavaScript in Bun Runtime",
+      description: "Execute JavaScript expressions in the Bun runtime context and retrieve results. This tool connects to Bun's inspector protocol to evaluate code in real-time, useful for debugging, testing expressions, inspecting variables, and interacting with the running application state. Results can be returned by value (serialized) or by reference (for complex objects).",
       inputSchema: {
-        expression: z.string().min(1).describe("JavaScript code to evaluate"),
-        returnByValue: z.boolean().optional().default(true).describe("Return result by value instead of reference"),
+        expression: z.string().min(1).describe("JavaScript code to evaluate (e.g., 'console.log(\"test\")', 'process.version', 'Math.PI * 2', 'document.querySelector(\".btn\")')"),
+        returnByValue: z.boolean().optional().default(true).describe("Return result by value (true) for primitive types and serializable objects, or by reference (false) for complex objects that need further inspection"),
       },
     },
   async ({ expression , returnByValue}) => {
@@ -310,13 +311,13 @@ mcp.registerTool(
 mcp.registerTool(
     "Debugger_evaluateOnCallFrame",
     {
-      title: "debugger evaluate on call frame",
-      description: "Evaluate JavaScript code on a specific call frame (for debugging paused code)",
+      title: "Evaluate Code on Debugger Call Frame",
+      description: "Execute JavaScript expressions within a specific call frame context when the debugger is paused. This powerful debugging tool allows you to inspect and manipulate variables, call functions, and evaluate expressions in the exact scope where execution is paused. Essential for debugging breakpoints, examining local variables, testing fixes, and understanding program state at specific execution points.",
       inputSchema: {
-        callFrameId: z.string().describe("Call frame identifier to evaluate expression on"),
-        expression: z.string().min(1).describe("JavaScript code to evaluate in the context of the call frame"),
-        returnByValue: z.boolean().optional().default(true).describe("Return result by value instead of reference"),
-        generatePreview: z.boolean().optional().default(true).describe("Whether preview should be generated for the result"),
+        callFrameId: z.string().describe("Call frame identifier from the debugger pause stack (obtained from Debugger.paused event). Each frame represents a function call in the stack trace"),
+        expression: z.string().min(1).describe("JavaScript code to evaluate within the call frame's scope (e.g., 'localVariable', 'this.property', 'myFunction()', 'arguments[0]')"),
+        returnByValue: z.boolean().optional().default(true).describe("Return primitive values and serializable objects directly (true) or return complex objects as remote object references (false)"),
+        generatePreview: z.boolean().optional().default(true).describe("Generate a preview for object results, showing property names and values for easier inspection"),
       },
     },
   async ({ callFrameId, expression, returnByValue, generatePreview  }) => {
@@ -368,12 +369,12 @@ mcp.registerTool(
 mcp.registerTool(
     "BunFrontendDevServer_getConsoleLogs",
     {
-      title: "Get console logs on Frontend Dev Server",
-      description: "Retrieve console log messages from the Frontend Dev Server in Bun",
+      title: "Retrieve Bun Frontend Dev Server Console Logs",
+      description: "Access and filter console log messages from Bun's Frontend Development Server. This tool captures all console outputs (log, warn, error, debug) from your frontend application running in Bun's dev server environment. Useful for monitoring application behavior, debugging issues, tracking errors, and analyzing runtime logs without direct console access. Logs are stored in memory and can be filtered by server instance, log type, or retrieved in batches.",
       inputSchema: {
-        limit: z.number().optional().default(100).describe("Maximum number of logs to return (newest first)"),
-        serverId: z.number().optional().describe("Filter logs by server ID"),
-        kind: z.string().optional().describe("Filter logs by kind/type"),
+        limit: z.number().optional().default(100).describe("Maximum number of log entries to retrieve, sorted by newest first (default: 100). Use smaller values for quick checks or larger values for comprehensive log analysis"),
+        serverId: z.number().optional().describe("Filter logs by specific server instance ID. Useful when running multiple dev servers or after server restarts"),
+        kind: z.string().optional().describe("Filter logs by type/kind (e.g., 'log', 'error', 'warn', 'debug'). Leave empty to retrieve all log types"),
       },
     },
   async ({ limit, serverId, kind }) => {
