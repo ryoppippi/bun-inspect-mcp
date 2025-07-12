@@ -2583,6 +2583,70 @@ export namespace JSC {
      */
     export type DisableResponse = {};
   }
+  export namespace BunFrontendDevServer {
+    /**
+     * Unique identifier for a Bun.serve instance
+     */
+    export type ServerId = number;
+    
+    /**
+     * Unique identifier for HMR WebSocket client connection
+     */
+    export type ConnectionId = number;
+    
+    /**
+     * Identifier for a specific route bundle
+     */
+    export type RouteBundleId = number;
+    
+    /**
+     * Base64 encoded binary payload
+     */
+    export type SerializedPayloadBase64 = string;
+    
+    /**
+     * Console log event sent from the dev server
+     * @event `BunFrontendDevServer.consoleLog`
+     */
+    export type ConsoleLogEvent = {
+      /**
+       * The server ID that generated this log
+       */
+      serverId: ServerId;
+      /**
+       * The type of console message
+       */
+      kind: string;
+      /**
+       * The log message content
+       */
+      message: string;
+    };
+    
+    /**
+     * Enables BunFrontendDevServer domain events.
+     * @request `BunFrontendDevServer.enable`
+     */
+    export type EnableRequest = {};
+    
+    /**
+     * Enables BunFrontendDevServer domain events.
+     * @response `BunFrontendDevServer.enable`
+     */
+    export type EnableResponse = {};
+    
+    /**
+     * Disables BunFrontendDevServer domain events.
+     * @request `BunFrontendDevServer.disable`
+     */
+    export type DisableRequest = {};
+    
+    /**
+     * Disables BunFrontendDevServer domain events.
+     * @response `BunFrontendDevServer.disable`
+     */
+    export type DisableResponse = {};
+  }
   export type EventMap = {
     "Console.messageAdded": Console.MessageAddedEvent;
     "Console.messageRepeatCountUpdated": Console.MessageRepeatCountUpdatedEvent;
@@ -2610,6 +2674,7 @@ export namespace JSC {
     "TestReporter.found": TestReporter.FoundEvent;
     "TestReporter.start": TestReporter.StartEvent;
     "TestReporter.end": TestReporter.EndEvent;
+    "BunFrontendDevServer.consoleLog": BunFrontendDevServer.ConsoleLogEvent;
   };
   export type RequestMap = {
     "Audit.setup": Audit.SetupRequest;
@@ -2689,6 +2754,8 @@ export namespace JSC {
     "ScriptProfiler.stopTracking": ScriptProfiler.StopTrackingRequest;
     "TestReporter.enable": TestReporter.EnableRequest;
     "TestReporter.disable": TestReporter.DisableRequest;
+    "BunFrontendDevServer.enable": BunFrontendDevServer.EnableRequest;
+    "BunFrontendDevServer.disable": BunFrontendDevServer.DisableRequest;
   };
   export type ResponseMap = {
     "Audit.setup": Audit.SetupResponse;
@@ -2768,6 +2835,8 @@ export namespace JSC {
     "ScriptProfiler.stopTracking": ScriptProfiler.StopTrackingResponse;
     "TestReporter.enable": TestReporter.EnableResponse;
     "TestReporter.disable": TestReporter.DisableResponse;
+    "BunFrontendDevServer.enable": BunFrontendDevServer.EnableResponse;
+    "BunFrontendDevServer.disable": BunFrontendDevServer.DisableResponse;
   };
 
   export type Event<T extends keyof EventMap = keyof EventMap> = {

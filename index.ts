@@ -139,6 +139,14 @@ export class InspectorSession {
       if (message.id && this.messageCallbacks.has(message.id)) {
         const callback = this.messageCallbacks.get(message.id);
         callback!(message);
+      } else if (message.method && !message.id) {
+        // This is an event, not a response
+        const listeners = this.eventListeners.get(message.method);
+        if (listeners) {
+          for (const listener of listeners) {
+            listener(message.params);
+          }
+        }
       }
     } catch (e) {
       console.error("Failed to parse message:", e);
@@ -259,6 +267,16 @@ const mcp = new McpServer({
   version: Bun.version,
 })
 
+// Storage for console logs
+interface ConsoleLogEntry {
+  serverId: number;
+  kind: string;
+  message: string;
+  timestamp: Date;
+}
+
+const consoleLogs: ConsoleLogEntry[] = [];
+
 mcp.registerTool(
     "Runtime.evaluate",
     {
@@ -347,6 +365,46 @@ mcp.registerTool(
   }
 )
 
+mcp.registerTool(
+    "BunFrontendDevServer.getConsoleLogs",
+    {
+      title: "Get BunFrontendDevServer console logs",
+      description: "Retrieve console log messages from the BunFrontendDevServer",
+      inputSchema: {
+        limit: z.number().optional().default(100).describe("Maximum number of logs to return (newest first)"),
+        serverId: z.number().optional().describe("Filter logs by server ID"),
+        kind: z.string().optional().describe("Filter logs by kind/type"),
+      },
+    },
+  async ({ limit, serverId, kind }) => {
+        let logs = [...consoleLogs];
+        
+        // Apply filters
+        if (serverId !== undefined) {
+          logs = logs.filter(log => log.serverId === serverId);
+        }
+        if (kind !== undefined) {
+          logs = logs.filter(log => log.kind === kind);
+        }
+        
+        // Sort by newest first and limit
+        logs = logs.slice(-limit).reverse();
+        
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                count: logs.length,
+                totalCount: consoleLogs.length,
+                logs: logs
+              }, null, 2)
+            },
+          ],
+        };
+  }
+)
+
 const app = new Hono();
 app.all("/mcp", async c => {
   const transport = new StreamableHTTPTransport();
@@ -392,6 +450,16 @@ socket.data = {
 await session.enable();
 await session.initialize();
 session.unref();
+
+// Add event listener for console logs
+session.addEventListener("BunFrontendDevServer.consoleLog", (params: JSC.BunFrontendDevServer.ConsoleLogEvent) => {
+  consoleLogs.push({
+    serverId: params.serverId,
+    kind: params.kind,
+    message: params.message,
+    timestamp: new Date()
+  });
+});
 
 const port = 4000;
 console.log(`MCP server listening on http://localhost:${port}/mcp`);
