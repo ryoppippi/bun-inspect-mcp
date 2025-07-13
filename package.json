@@ -1,11 +1,11 @@
 {
   "name": "bun-inspect-mcp",
   "version": "0.1.3",
-  "description": "A debugging tool that captures and displays the inspector protocol messages for Bun processes",
+  "description": "MCP server providing debugging and inspection tools for Bun applications through the Bun Inspector Protocol",
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "bun-inspect-echo": "index.ts"
+    "bun-inspect-mcp": "index.ts"
   },
   "files": [
     "index.ts",
@@ -25,18 +25,23 @@
     "debug",
     "devtools",
     "dev-tools",
-    "protocol"
+    "protocol",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "ai-tools",
+    "debugging-tools"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/username/bun-inspect-echo.git"
+    "url": "git+https://github.com/ryoppippi/bun-inspect-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/username/bun-inspect-echo/issues"
+    "url": "https://github.com/ryoppippi/bun-inspect-mcp/issues"
   },
-  "homepage": "https://github.com/username/bun-inspect-echo#readme",
+  "homepage": "https://github.com/ryoppippi/bun-inspect-mcp#readme",
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5"
