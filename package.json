@@ -1,5 +1,5 @@
 {
-  "name": "bun-inspect-echo",
+  "name": "bun-inspect-mcp",
   "version": "0.1.3",
   "description": "A debugging tool that captures and displays the inspector protocol messages for Bun processes",
   "module": "index.ts",
