@@ -284,7 +284,7 @@
       isConnected = true;
       
       // Create birpc instance
-      rpc = createBirpc(browserFunctions, {
+      rpc = createBirpc(serverFunctions, {
         post: (data) => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(data);
@@ -297,6 +297,7 @@
         },
         serialize: (data) => JSON.stringify(data),
         deserialize: (data) => JSON.parse(data),
+        functions: browserFunctions,
       });
       
       // Notify server that browser is ready
