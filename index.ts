@@ -346,15 +346,23 @@ interface BrowserFunctions {
   getPageInfo: () => Promise<any>;
 }
 
-// Server functions that browser can call
-const serverFunctions = {
+// Create server functions for a specific connection
+const createServerFunctions = (connectionId: string) => ({
   notifyEvent: async ({ type, data }: { type: string; data: any }) => {
     console.log(`[Browser Event] ${type}:`, data);
+    
+    // Update connection info when browser connects
+    if (type === 'connected' && data.url) {
+      const connection = browserConnections.get(connectionId);
+      if (connection) {
+        connection.url = data.url;
+      }
+    }
   },
   reportError: async ({ error, stack }: { error: string; stack?: string }) => {
-    console.error(`[Browser Error]:`, error, stack);
+    console.error(`[Browser Error] from ${connectionId}:`, error, stack);
   },
-};
+});
 
 mcp.registerTool(
     "Runtime_evaluate",
@@ -1322,7 +1330,9 @@ app.get(
         (ws as any).connectionId = connectionId;
         
         // Create birpc instance
-        connection.rpc = createBirpc<BrowserFunctions>(serverFunctions, {
+        // Server exposes serverFunctions, and gets back an rpc object to call BrowserFunctions
+        const serverFunctions = createServerFunctions(connectionId);
+        connection.rpc = createBirpc<BrowserFunctions, typeof serverFunctions>(serverFunctions, {
           post: (data) => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(data);

@@ -284,6 +284,7 @@
       isConnected = true;
       
       // Create birpc instance
+      // Browser exposes browserFunctions, and gets back an rpc object to call serverFunctions
       rpc = createBirpc(browserFunctions, {
         post: (data) => {
           if (ws.readyState === WebSocket.OPEN) {
