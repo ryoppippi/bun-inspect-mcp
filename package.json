@@ -9,6 +9,11 @@
   },
   "files": [
     "index.ts",
+    "browser-types.ts",
+    "browser-control.ts",
+    "browser-control.js",
+    "preview.ts",
+    "types.ts",
     "README.md"
   ],
   "engines": {
@@ -16,7 +21,9 @@
   },
   "scripts": {
     "dev": "bun index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:browser": "bun build ./browser-control.ts --outfile=browser-control.js --target=browser --format=iife",
+    "typecheck:browser": "tsc --noEmit -p tsconfig.browser.json"
   },
   "keywords": [
     "bun",

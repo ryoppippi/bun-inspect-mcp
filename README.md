@@ -220,10 +220,25 @@ Browser_waitForElement(browserId: "browser1",
 ```bash
 # Type checking
 bun run typecheck
+bun run typecheck:browser
+
+# Build browser control script
+bun run build:browser
 
 # Run in development mode
 bun run dev
 ```
+
+### TypeScript
+
+The project is written in TypeScript with the following structure:
+- `index.ts` - Main MCP server implementation
+- `browser-control.ts` - Browser control script (compiled to `browser-control.js`)
+- `browser-types.ts` - Shared TypeScript types for browser control
+- `types.ts` - Bun Inspector Protocol types
+- `preview.ts` - Utilities for object preview
+
+The browser control script is compiled from TypeScript to JavaScript for CDN distribution.
 
 ## Architecture
 

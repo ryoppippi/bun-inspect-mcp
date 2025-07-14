@@ -2,6 +2,7 @@
 
 import type { JSC } from './types.ts'
 import type { ServerWebSocket } from 'bun'
+import type { BrowserConnection, BrowserFunctions, ServerFunctions, NotifyEventData } from './browser-types';
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -323,53 +324,28 @@ interface BackendConsoleMessage {
 }
 const backendConsoleLogs: BackendConsoleMessage[] = [];
 
-// Browser control types
-interface BrowserConnection {
-  id: string;
-  ws: any;
-  rpc: any;
-  url: string;
-  connected: boolean;
-}
 
 // Active browser connections
 const browserConnections = new Map<string, BrowserConnection>();
 
-// Browser RPC functions that MCP can call
-interface BrowserFunctions {
-  findElement: (params: { type: string; value: string; tagName?: string }) => Promise<any>;
-  clickElement: (params: { type: string; value: string; tagName?: string; options?: any }) => Promise<any>;
-  inputText: (params: { type: string; value: string; tagName?: string; text: string; clear?: boolean }) => Promise<any>;
-  evaluate: (params: { expression: string }) => Promise<any>;
-  getElements: (params: { selector: string; limit?: number }) => Promise<any>;
-  waitForElement: (params: { type: string; value: string; tagName?: string; timeout?: number }) => Promise<any>;
-  getPageInfo: () => Promise<any>;
-}
 
 // Create server functions for a specific connection
-const createServerFunctions = (connectionId: string) => ({
-  notifyEvent: async ({ type, data }: { type: string; data: any }) => {
+const createServerFunctions = (connectionId: string): ServerFunctions => ({
+  notifyEvent: async (data: NotifyEventData) => {
     console.log(`[Browser Event] notifyEvent called for ${connectionId}`);
-    console.log(`[Browser Event] ${type}:`, data);
+    console.log(`[Browser Event] ${data.type}:`, data.data);
     
     // Update connection info when browser connects
-    if (type === 'connected' && data.url) {
+    if (data.type === 'connected' && data.data.url) {
       const connection = browserConnections.get(connectionId);
       if (connection) {
-        connection.url = data.url;
-        console.log(`[Browser Event] Updated URL for ${connectionId}: ${data.url}`);
+        connection.url = data.data.url;
+        console.log(`[Browser Event] Updated URL for ${connectionId}: ${data.data.url}`);
       }
     }
-    
-    // Return success
-    return { success: true, message: `Event ${type} received` };
   },
-  reportError: async ({ error, stack }: { error: string; stack?: string }) => {
-    console.error(`[Browser Error] reportError called for ${connectionId}`);
-    console.error(`[Browser Error] from ${connectionId}:`, error, stack);
-    
-    // Return acknowledgment
-    return { success: true, message: 'Error reported' };
+  reportError: async (error: any) => {
+    console.error(`[Browser Error] from ${connectionId}:`, error);
   },
 });
 
@@ -1364,7 +1340,7 @@ app.get(
         (ws as any).messageHandler = null;
         (ws as any).bufferedMessages = [];
         
-        connection.rpc = createBirpc<BrowserFunctions, typeof serverFunctions>(serverFunctions, {
+        connection.rpc = createBirpc<BrowserFunctions, ServerFunctions>(serverFunctions, {
           post: (data) => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(data);
