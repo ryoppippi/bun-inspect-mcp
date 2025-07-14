@@ -16,6 +16,7 @@ This tool uses the Bun Inspector Protocol based on https://github.com/oven-sh/bu
 - **Script Inspection**: View loaded scripts and their source code
 - **Call Frame Evaluation**: Inspect variables and evaluate expressions in paused contexts
 - **Console Monitoring**: Capture frontend and backend console logs
+- **Browser Control**: Remote control any browser via WebSocket connection
 
 ## Installation
 
@@ -102,6 +103,17 @@ Add this server to your Claude Desktop configuration:
 - `Console_getBackendLogs` - Retrieve backend console logs
 - `BunFrontendDevServer_getClientErrors` - Retrieve client-side errors
 
+### Browser Control
+
+- `Browser_connect` - Connect to a browser with the control script loaded
+- `Browser_click` - Click elements using various selectors
+- `Browser_input` - Type text into input fields
+- `Browser_evaluate` - Execute JavaScript in browser context
+- `Browser_getElements` - Query DOM elements
+- `Browser_waitForElement` - Wait for elements to appear
+- `Browser_getPageInfo` - Get current page information
+- `Browser_disconnect` - Close browser connection
+
 ## Example Workflow
 
 1. **Set a breakpoint in your code:**
@@ -126,6 +138,77 @@ Add this server to your Claude Desktop configuration:
    Console_getBackendLogs(level: "error")
    BunFrontendDevServer_getConsoleLogs(kind: "error")
    ```
+
+## Browser Control
+
+The MCP server includes a WebSocket server on port 4001 that enables remote browser control. This allows you to automate browser interactions, extract data, and test web applications.
+
+### Setting up Browser Control
+
+1. **Load the control script in your browser:**
+
+   **Option A: Direct script tag**
+   ```html
+   <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js"></script>
+   ```
+
+   **Option B: Via browser console**
+   ```javascript
+   const script = document.createElement('script');
+   script.src = 'https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js';
+   document.head.appendChild(script);
+   ```
+
+   **Option C: Custom WebSocket URL**
+   ```html
+   <!-- Connect to a different host/port -->
+   <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js" 
+           data-ws-url="ws://192.168.1.100:4001"></script>
+   ```
+
+2. **Connect from MCP:**
+   ```
+   Browser_connect(browserId: "myBrowser")
+   ```
+
+3. **Control the browser:**
+   ```
+   // Click a button
+   Browser_click(browserId: "myBrowser", selector: {type: "text", value: "Submit"})
+   
+   // Fill a form
+   Browser_input(browserId: "myBrowser", selector: {type: "id", value: "email"}, text: "user@example.com")
+   
+   // Extract data
+   Browser_evaluate(browserId: "myBrowser", expression: "document.title")
+   ```
+
+### Browser Control Examples
+
+**Login automation:**
+```
+Browser_input(browserId: "browser1", selector: {type: "id", value: "username"}, text: "myuser")
+Browser_input(browserId: "browser1", selector: {type: "id", value: "password"}, text: "mypass")
+Browser_click(browserId: "browser1", selector: {type: "css", value: "button[type='submit']"})
+```
+
+**Data extraction:**
+```
+Browser_evaluate(browserId: "browser1", expression: `
+  Array.from(document.querySelectorAll('.product')).map(el => ({
+    name: el.querySelector('.name')?.textContent,
+    price: el.querySelector('.price')?.textContent
+  }))
+`)
+```
+
+**Wait for dynamic content:**
+```
+Browser_waitForElement(browserId: "browser1", 
+  selector: {type: "css", value: ".search-results"}, 
+  timeout: 10000
+)
+```
 
 ## Requirements
 
