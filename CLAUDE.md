@@ -162,6 +162,108 @@ These tools work together to provide full debugging capabilities:
 
 - **Events**: The debugger emits events (paused, resumed, scriptParsed) that are logged to the console for visibility.
 
+## Browser Control Tools
+
+The MCP server includes powerful browser automation capabilities via WebSocket connection. These tools allow you to remotely control any browser that has loaded the `browser-control.js` script.
+
+### Setup
+
+1. **Load the control script** in your target browser:
+   ```html
+   <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js"></script>
+   ```
+   Or via browser console:
+   ```javascript
+   const script = document.createElement('script');
+   script.src = 'https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js';
+   document.head.appendChild(script);
+   ```
+
+2. **Connect from MCP** using `Browser_connect` tool
+
+### Browser Control Tools
+
+#### `Browser_connect`
+- **Purpose**: Establish WebSocket connection to a browser
+- **When to use**: Before using any other browser control tools
+- **Returns**: Connection status and browser ID
+
+#### `Browser_click`
+- **Purpose**: Click elements in the browser
+- **Selector types**:
+  - `id`: Find by element ID
+  - `text`: Find by exact text content
+  - `css`: Find by CSS selector
+  - `xpath`: Find by XPath expression
+- **Options**: Mouse button, coordinates, modifier keys
+
+#### `Browser_input`
+- **Purpose**: Type text into input fields
+- **Features**: Auto-focus, clear existing content, trigger events
+- **Works with**: input, textarea, contenteditable elements
+
+#### `Browser_evaluate`
+- **Purpose**: Execute JavaScript in browser context
+- **Access**: Full DOM, window object, all browser APIs
+- **Returns**: Evaluation result or error
+
+#### `Browser_getElements`
+- **Purpose**: Query DOM elements and get their properties
+- **Returns**: Element details including attributes, text, position
+- **Limit**: Control number of results returned
+
+#### `Browser_waitForElement`
+- **Purpose**: Wait for dynamic content to appear
+- **Use cases**: AJAX responses, animations, lazy loading
+- **Timeout**: Configurable wait duration
+
+#### `Browser_getPageInfo`
+- **Purpose**: Get current page information
+- **Returns**: URL, title, viewport size, ready state
+
+#### `Browser_disconnect`
+- **Purpose**: Close browser connection
+- **Note**: Browser will attempt to reconnect automatically
+
+### Browser Control Workflow Example
+
+```
+1. Browser_connect(browserId: "myBrowser")
+2. Browser_waitForElement(browserId: "myBrowser", selector: {type: "id", value: "login-form"})
+3. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "username"}, text: "user@example.com")
+4. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "password"}, text: "secretpass")
+5. Browser_click(browserId: "myBrowser", selector: {type: "text", value: "Sign In", tagName: "button"})
+6. Browser_evaluate(browserId: "myBrowser", expression: "window.location.href")
+```
+
+### Advanced Browser Automation
+
+```javascript
+// Extract data from a table
+Browser_evaluate(browserId: "browser1", expression: `
+  Array.from(document.querySelectorAll('table tr')).map(row => 
+    Array.from(row.cells).map(cell => cell.textContent.trim())
+  )
+`)
+
+// Wait for AJAX to complete
+Browser_waitForElement(browserId: "browser1", 
+  selector: {type: "css", value: ".results-loaded"}, 
+  timeout: 10000
+)
+
+// Interact with dropdown
+Browser_click(browserId: "browser1", selector: {type: "css", value: "select#country"})
+Browser_click(browserId: "browser1", selector: {type: "text", value: "United States", tagName: "option"})
+
+// Handle file upload (simulate)
+Browser_evaluate(browserId: "browser1", expression: `
+  const input = document.querySelector('input[type="file"]');
+  // Note: Can't actually select files due to security, but can trigger events
+  input.dispatchEvent(new Event('change', {bubbles: true}));
+`)
+```
+
 ## Example Scenarios
 
 ### Debugging a specific function
