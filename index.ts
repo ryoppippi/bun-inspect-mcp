@@ -1226,7 +1226,7 @@ mcp.registerTool(
         }
         
         // Sort by URL for better readability
-        scripts.sort((a, b) => {
+        scripts = scripts.toSorted((a, b) => {
           if (!a.url && !b.url) return 0;
           if (!a.url) return 1;
           if (!b.url) return -1;
