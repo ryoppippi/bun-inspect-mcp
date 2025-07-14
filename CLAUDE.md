@@ -61,6 +61,11 @@ These tools work together to provide full debugging capabilities:
 - **Prerequisite**: Must know scriptId (use `Debugger_getScripts` first)
 - **Features**: Supports conditional breakpoints and actions
 - **Limitation**: Only works for backend code executed by Bun
+- **Conditional Breakpoints**:
+  - Break only when condition is true: `condition: "count > 10"`
+  - Break on specific user: `condition: "user.id === 'admin'"`
+  - Break on error states: `condition: "response.status >= 400"`
+  - Complex conditions: `condition: "items.length > 0 && items[0].price > 100"`
 
 #### `Debugger_removeBreakpoint`
 - **Purpose**: Remove a previously set breakpoint
@@ -79,7 +84,7 @@ These tools work together to provide full debugging capabilities:
 - **When to use**: To view code and determine line numbers for breakpoints
 - **Prerequisite**: Must know scriptId (use `Debugger_getScripts` first)
 
-### 5. Call Frame Evaluation
+### 5. Call Frame Evaluation and Variable Inspection
 
 #### `Debugger_evaluateOnCallFrame`
 - **Purpose**: Execute code in the context of a paused call frame
@@ -88,6 +93,12 @@ These tools work together to provide full debugging capabilities:
   1. Debugger must be paused (at breakpoint or via `Debugger_pause`)
   2. Must have callFrameId from the pause event
 - **Features**: Access to local variables, `this`, arguments, etc.
+- **Advanced Usage**:
+  - Inspect nested object properties: `JSON.stringify(myObject, null, 2)`
+  - Check variable types: `typeof variable` or `variable.constructor.name`
+  - Explore prototype chain: `Object.getPrototypeOf(obj)`
+  - List all properties: `Object.getOwnPropertyNames(obj)`
+  - Inspect function details: `functionName.toString()`
 
 ### 6. Console and Logging Tools
 
@@ -168,11 +179,90 @@ These tools work together to provide full debugging capabilities:
 2. Runtime_evaluate(expression: "document.querySelector('.my-element')")
 ```
 
+### Exploring Complex Objects
+```
+1. Debugger_setBreakpointByUrl(url: "file:///path/to/api.js", lineNumber: 123)
+2. Wait for breakpoint hit
+3. Debugger_evaluateOnCallFrame(callFrameId: "...", expression: "Object.keys(request.body)")
+4. Debugger_evaluateOnCallFrame(callFrameId: "...", expression: "JSON.stringify(user, null, 2)")
+5. Debugger_evaluateOnCallFrame(callFrameId: "...", expression: "Object.entries(headers).forEach(([k,v]) => console.log(`${k}: ${v}`))")
+```
+
 ### Monitoring logs
 ```
 1. BunFrontendDevServer_getConsoleLogs(limit: 50, kind: "error")  // Frontend logs
 2. Console_getBackendLogs(level: "error", search: "database")      // Backend logs
 3. BunFrontendDevServer_getClientErrors(decode: true)              // Client errors
 ```
+
+### Performance Debugging
+```
+1. Runtime_evaluate(expression: "console.time('operation')")
+2. // Let code execute
+3. Runtime_evaluate(expression: "console.timeEnd('operation')")
+4. Console_getBackendLogs(search: "operation")
+
+// Memory profiling
+5. Runtime_evaluate(expression: "console.log(process.memoryUsage())")
+6. Runtime_evaluate(expression: "global.gc && global.gc()")  // If --expose-gc flag is set
+
+// CPU profiling with breakpoints
+7. Debugger_setBreakpointByUrl(url: "file:///path/to/hotspot.js", lineNumber: 50)
+8. // Measure time between breakpoint hits to identify bottlenecks
+```
+
+### Async/Promise Debugging
+```
+// Debug promise chains
+1. Debugger_setBreakpointByUrl(url: "file:///path/to/async.js", lineNumber: 75, condition: "promise.state === 'rejected'")
+2. Runtime_evaluate(expression: "process.on('unhandledRejection', (reason, promise) => { console.error('Unhandled Rejection:', reason); debugger; })")
+
+// Track async operations
+3. Debugger_evaluateOnCallFrame(callFrameId: "...", expression: "Promise.resolve(asyncOperation).then(r => console.log('Result:', r)).catch(e => console.error('Error:', e))")
+
+// Debug async/await
+4. Debugger_setBreakpointByUrl(url: "file:///path/to/service.js", lineNumber: 100)  // Set before await
+5. Debugger_stepOver()  // Step over await to see resolved value
+6. Debugger_evaluateOnCallFrame(callFrameId: "...", expression: "result")  // Inspect awaited value
+
+// Monitor promise states
+7. Runtime_evaluate(expression: `
+  const promises = new Map();
+  const OriginalPromise = Promise;
+  global.Promise = new Proxy(OriginalPromise, {
+    construct(target, args) {
+      const promise = new target(...args);
+      promises.set(promise, { created: new Date(), state: 'pending' });
+      promise.then(() => promises.get(promise).state = 'fulfilled')
+             .catch(() => promises.get(promise).state = 'rejected');
+      return promise;
+    }
+  });
+`)
+```
+
+## Troubleshooting Common Issues
+
+### Connection Problems
+- **Issue**: "Cannot connect to debugger"
+  - **Solution**: Ensure Bun is running with `--inspect` flag
+  - **Check**: Inspector URL is accessible (default: ws://localhost:6499)
+
+### Breakpoint Issues
+- **Issue**: "Breakpoint not hitting"
+  - **Verify**: File path matches exactly (use `Debugger_getScripts` to confirm)
+  - **Check**: Code is actually executed (add console.log to verify)
+  - **Remember**: Breakpoints only work on backend code, not frontend
+
+### Evaluation Errors
+- **Issue**: "Variable is not defined"
+  - **Ensure**: Debugger is paused at correct scope
+  - **Use**: `Debugger_evaluateOnCallFrame` instead of `Runtime_evaluate` for local variables
+  - **Try**: Checking the call stack to ensure you're in the right frame
+
+### Performance Considerations
+- **Large Objects**: Use `JSON.stringify` with depth limit for huge objects
+- **Frequent Breakpoints**: Can slow down execution significantly
+- **Console Logs**: Filter by level to reduce noise
 
 This guide should help you effectively use all the debugging and inspection tools available in the Bun Inspector MCP.
