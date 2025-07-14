@@ -940,12 +940,21 @@ mcp.registerTool(
         throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
       }
       
-      const result = await connection.rpc.clickElement({
-        type: selector.type,
-        value: selector.value,
-        tagName: selector.tagName,
-        options
-      });
+      // Create a timeout promise that resolves after 3 seconds
+      const timeoutPromise = new Promise<string>((resolve) => 
+        setTimeout(() => resolve("ok"), 3000)
+      );
+      
+      // Race between the RPC call and timeout
+      const result = await Promise.race([
+        connection.rpc.clickElement({
+          type: selector.type,
+          value: selector.value,
+          tagName: selector.tagName,
+          options
+        }).then(() => "ok"),
+        timeoutPromise
+      ]);
       
       return {
         content: [
@@ -980,15 +989,22 @@ mcp.registerTool(
         throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
       }
       
-      const result = await connection.rpc.inputText({
-        type: selector.type,
-        value: selector.value,
-        tagName: selector.tagName,
-        text,
-        clear
-      });
-
-    console.log({result})
+      // Create a timeout promise that resolves after 3 seconds
+      const timeoutPromise = new Promise<string>((resolve) => 
+        setTimeout(() => resolve("ok"), 3000)
+      );
+      
+      // Race between the RPC call and timeout
+      const result = await Promise.race([
+        connection.rpc.inputText({
+          type: selector.type,
+          value: selector.value,
+          tagName: selector.tagName,
+          text,
+          clear
+        }).then(() => "ok"),
+        timeoutPromise
+      ]);
       
       return {
         content: [

@@ -98,26 +98,20 @@
       // Focus the element
       element.focus();
       
-      // Clear existing content if requested
-      if (clear) {
-        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-          element.value = '';
-        } else {
-          element.textContent = '';
-        }
-      }
-      
-      // Input new text
+      // Set the value directly
       if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-        element.value += text;
-        
-        // Trigger input event
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        if (clear) {
+          element.value = text;
+        } else {
+          element.value += text;
+        }
       } else {
         // For contenteditable
-        element.textContent += text;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
+        if (clear) {
+          element.textContent = text;
+        } else {
+          element.textContent += text;
+        }
       }
       
       return {
