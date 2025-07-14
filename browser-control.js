@@ -75,17 +75,7 @@
     clickElement: async ({ type, value, tagName, options = {} }) => {
       const element = await findElementInternal({ type, value, tagName });
       
-      // Create click event with options
-      const clickEvent = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        clientX: options.x || element.getBoundingClientRect().left + element.offsetWidth / 2,
-        clientY: options.y || element.getBoundingClientRect().top + element.offsetHeight / 2,
-        ...options
-      });
-      
-      element.dispatchEvent(clickEvent);
+      element.click();
       
       return {
         success: true,
