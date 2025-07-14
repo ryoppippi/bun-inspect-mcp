@@ -221,11 +221,11 @@ class Inspector extends InspectorSession {
   }
 
   unref() {
-    this.socket?.unref();
+    this.socket?.unref?.();
   }
 
   ref() {
-    this.socket?.ref();
+    this.socket?.ref?.();
   }
 }
 
@@ -1360,9 +1360,10 @@ app.get(
         });
         
         // Process any buffered messages if handler was set
-        if (messageHandler && (ws as any).bufferedMessages) {
+        if ((ws as any).messageHandler && (ws as any).bufferedMessages) {
+          const handler = (ws as any).messageHandler as (data: any) => void;
           for (const msg of (ws as any).bufferedMessages) {
-            messageHandler(msg);
+            handler(msg);
           }
           delete (ws as any).bufferedMessages;
         }
@@ -1483,7 +1484,7 @@ session.addEventListener("Debugger.paused", (params: JSC.Debugger.PausedEvent) =
     reason: params.reason,
     callFrames: params.callFrames.map(frame => ({
       functionName: frame.functionName || "<anonymous>",
-      location: `${frame.url || frame.scriptId}:${frame.location.lineNumber}:${frame.location.columnNumber || 0}`,
+      location: `${frame.location.scriptId}:${frame.location.lineNumber}:${frame.location.columnNumber || 0}`,
       scopeChain: frame.scopeChain.length
     })),
     data: params.data
@@ -1505,13 +1506,13 @@ session.addEventListener("Debugger.scriptParsed", (params: JSC.Debugger.ScriptPa
     startColumn: params.startColumn,
     endLine: params.endLine,
     endColumn: params.endColumn,
-    executionContextId: params.executionContextId,
-    hash: params.hash,
+    executionContextId: undefined, // Not available in the event
+    hash: undefined, // Not available in the event
     isContentScript: params.isContentScript,
-    isModule: params.isModule,
+    isModule: params.module,
     sourceMapURL: params.sourceMapURL,
-    hasSourceURL: params.hasSourceURL,
-    length: params.length
+    hasSourceURL: !!params.sourceURL,
+    length: undefined // Not available in the event
   };
   
   parsedScripts.set(params.scriptId, scriptInfo);
@@ -1523,9 +1524,7 @@ session.addEventListener("Debugger.scriptParsed", (params: JSC.Debugger.ScriptPa
     startColumn: params.startColumn,
     endLine: params.endLine,
     endColumn: params.endColumn,
-    executionContextId: params.executionContextId,
-    hash: params.hash,
-    isModule: params.isModule
+    isModule: params.module
   });
 });
 
