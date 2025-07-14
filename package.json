@@ -22,7 +22,7 @@
   "scripts": {
     "dev": "bun index.ts",
     "typecheck": "tsc --noEmit",
-    "build:browser": "bun build ./browser-control.ts --outfile=browser-control.js --target=browser --format=iife",
+    "build:browser": "bun build ./browser-control.ts --outfile=browser-control.js --target=browser --format=esm",
     "typecheck:browser": "tsc --noEmit -p tsconfig.browser.json"
   },
   "keywords": [

@@ -4,6 +4,7 @@
  * Load this script in any webpage to allow MCP server to control browser elements
  */
 
+import { createBirpc } from 'birpc';
 import type { 
   BrowserSelector, 
   ElementInfo, 
@@ -17,21 +18,6 @@ import type {
   NotifyEventData
 } from './browser-types';
 
-// Type for birpc when loaded from CDN
-type BirpcReturn<Remote> = Remote & {
-  $functions: BrowserFunctions;
-};
-
-type CreateBirpc = <Remote = ServerFunctions>(
-  functions: BrowserFunctions,
-  options: {
-    post: (data: any) => void;
-    on: (handler: (data: any) => void) => void;
-    serialize?: (data: any) => any;
-    deserialize?: (data: any) => any;
-  }
-) => BirpcReturn<Remote>;
-
 declare global {
   interface Window {
     BunInspectorMCP: {
@@ -43,26 +29,22 @@ declare global {
   }
 }
 
-(async function() {
-  // Load birpc from esm.sh
-  // @ts-expect-error - dynamic import from CDN
-  const birpcModule = await import('https://esm.sh/birpc@0.2.19') as { createBirpc: CreateBirpc };
-  const { createBirpc } = birpcModule;
+// Use top-level await with ESM module
   
-  // Configuration - check for data-ws-url attribute on script tag
-  const scriptTag = document.currentScript || document.querySelector('script[src*="browser-control"]');
-  const WS_URL = scriptTag?.dataset?.wsUrl || scriptTag?.getAttribute('data-ws-url') || 'ws://localhost:4000/_ws_browser';
-  const RECONNECT_DELAY = 3000;
-  
-  console.log(`[BunInspectorMCP] Using WebSocket URL: ${WS_URL}`);
-  
-  // State
-  let ws: WebSocket | null = null;
-  let rpc: BirpcReturn<ServerFunctions> | null = null;
-  let isConnected = false;
-  
-  // Helper function to find element (internal use)
-  async function findElementInternal(params: BrowserSelector): Promise<Element> {
+// Configuration - check for data-ws-url attribute on script tag
+const scriptTag = document.currentScript || document.querySelector('script[src*="browser-control"]');
+const WS_URL = scriptTag?.dataset?.wsUrl || scriptTag?.getAttribute('data-ws-url') || 'ws://localhost:4000/_ws_browser';
+const RECONNECT_DELAY = 3000;
+
+console.log(`[BunInspectorMCP] Using WebSocket URL: ${WS_URL}`);
+
+// State
+let ws: WebSocket | null = null;
+let rpc: ServerFunctions | null = null;
+let isConnected = false;
+
+// Helper function to find element (internal use)
+async function findElementInternal(params: BrowserSelector): Promise<Element> {
     let element: Element | null = null;
     
     switch (params.type) {
@@ -96,9 +78,9 @@ declare global {
     
     return element;
   }
-  
-  // Browser functions exposed to MCP server
-  const browserFunctions: BrowserFunctions = {
+
+// Browser functions exposed to MCP server
+const browserFunctions: BrowserFunctions = {
     // Find element by various selectors
     findElement: async (params: BrowserSelector): Promise<ElementInfo> => {
       const element = await findElementInternal(params);
@@ -287,9 +269,9 @@ declare global {
       };
     }
   };
-  
-  // Connect to WebSocket server
-  function connect() {
+
+// Connect to WebSocket server
+function connect() {
     console.log('[BunInspectorMCP] Connecting to WebSocket server...');
     
     ws = new WebSocket(WS_URL);
@@ -346,12 +328,12 @@ declare global {
       console.error('[BunInspectorMCP] WebSocket error:', error);
     });
   }
-  
-  // Start connection
-  connect();
-  
-  // Expose API to window for manual testing
-  window.BunInspectorMCP = {
+
+// Start connection
+connect();
+
+// Expose API to window for manual testing
+window.BunInspectorMCP = {
     isConnected: () => isConnected,
     disconnect: () => {
       if (ws) {
@@ -369,5 +351,4 @@ declare global {
     browserFunctions
   };
   
-  console.log('[BunInspectorMCP] Browser control script loaded. Connecting to MCP server...');
-})();
+console.log('[BunInspectorMCP] Browser control script loaded. Connecting to MCP server...');

@@ -149,12 +149,13 @@ The MCP server includes a WebSocket endpoint at `/_ws_browser` that enables remo
 
    **Option A: Direct script tag**
    ```html
-   <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js"></script>
+   <script type="module" src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js"></script>
    ```
 
    **Option B: Via browser console**
    ```javascript
    const script = document.createElement('script');
+   script.type = 'module';
    script.src = 'https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js';
    document.head.appendChild(script);
    ```
@@ -162,7 +163,8 @@ The MCP server includes a WebSocket endpoint at `/_ws_browser` that enables remo
    **Option C: Custom WebSocket URL**
    ```html
    <!-- Connect to a different host/port -->
-   <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js" 
+   <script type="module" 
+           src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js" 
            data-ws-url="ws://192.168.1.100:4000/_ws_browser"></script>
    ```
 
@@ -238,7 +240,11 @@ The project is written in TypeScript with the following structure:
 - `types.ts` - Bun Inspector Protocol types
 - `preview.ts` - Utilities for object preview
 
-The browser control script is compiled from TypeScript to JavaScript for CDN distribution.
+The browser control script is compiled from TypeScript to an ESM module bundle that includes all dependencies (birpc). This allows for:
+- Type-safe development with TypeScript
+- Top-level await support
+- Bundled dependencies for easy distribution
+- Modern ESM module syntax
 
 ## Architecture
 
