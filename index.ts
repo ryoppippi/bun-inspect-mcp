@@ -940,9 +940,9 @@ mcp.registerTool(
         throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
       }
       
-      // Create a timeout promise that resolves after 3 seconds
+      // Create a timeout promise that resolves after 1 second
       const timeoutPromise = new Promise<string>((resolve) => 
-        setTimeout(() => resolve("ok"), 3000)
+        setTimeout(() => resolve("ok"), 1000)
       );
       
       // Race between the RPC call and timeout
@@ -989,9 +989,9 @@ mcp.registerTool(
         throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
       }
       
-      // Create a timeout promise that resolves after 3 seconds
+      // Create a timeout promise that resolves after 1 second
       const timeoutPromise = new Promise<string>((resolve) => 
-        setTimeout(() => resolve("ok"), 3000)
+        setTimeout(() => resolve("ok"), 1000)
       );
       
       // Race between the RPC call and timeout
