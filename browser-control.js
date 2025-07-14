@@ -271,7 +271,6 @@
       // Browser exposes browserFunctions, and gets back an rpc object to call serverFunctions
       rpc = createBirpc(browserFunctions, {
         post: (data) => {
-          console.log('[BunInspectorMCP] Sending to server:', data);
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(data);
           } else {
@@ -280,7 +279,6 @@
         },
         on: (handler) => {
           ws.addEventListener('message', (event) => {
-            console.log('[BunInspectorMCP] Received from server:', event.data);
             handler(event.data);
           });
         },
