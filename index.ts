@@ -784,10 +784,39 @@ mcp.registerTool(
 )
 
 mcp.registerTool(
+    "Browser_list",
+    {
+      title: "List Browser Connections",
+      description: "Lists all browser connections (active and pending). Shows connection status, browser IDs, and page URLs. Use this before Browser_connect to see if a browser is already connected or to find available browser IDs.",
+      inputSchema: {},
+    },
+    async () => {
+      const connections = Array.from(browserConnections.entries()).map(([id, conn]) => ({
+        browserId: id,
+        connected: conn.connected,
+        url: conn.url || "Not connected yet",
+        status: conn.connected ? "Connected" : "Waiting for connection"
+      }));
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              totalConnections: connections.length,
+              connections: connections
+            }, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
     "Browser_connect",
     {
       title: "Connect to Browser for Control",
-      description: "Establishes a WebSocket connection to a browser that has loaded the browser-control.js script. This enables remote control of browser elements, JavaScript evaluation, and DOM manipulation. The browser must have the control script loaded first (either via script tag or console). Once connected, you can click elements, input text, evaluate JavaScript, and monitor page state. The connection persists until explicitly disconnected or the browser closes.",
+      description: "Establishes a WebSocket connection to a browser that has loaded the browser-control.js script. This enables remote control of browser elements, JavaScript evaluation, and DOM manipulation. The browser must have the control script loaded first (either via script tag or console). Once connected, you can click elements, input text, evaluate JavaScript, and monitor page state. The connection persists until explicitly disconnected or the browser closes. TIP: Use Browser_list first to check existing connections.",
       inputSchema: {
         browserId: z.string().describe("Unique identifier for this browser connection. Use this ID to reference the connection in other browser control commands"),
         waitForConnection: z.boolean().optional().default(true).describe("Wait for browser to connect (true) or return immediately (false). When true, waits up to 10 seconds for connection")

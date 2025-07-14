@@ -183,9 +183,14 @@ The MCP server includes powerful browser automation capabilities via WebSocket c
 
 ### Browser Control Tools
 
+#### `Browser_list`
+- **Purpose**: List all browser connections (active and pending)
+- **When to use**: Before connecting to check existing connections
+- **Returns**: List of all browser IDs with their connection status
+
 #### `Browser_connect`
 - **Purpose**: Establish WebSocket connection to a browser
-- **When to use**: Before using any other browser control tools
+- **When to use**: After checking Browser_list, before using other browser control tools
 - **Returns**: Connection status and browser ID
 
 #### `Browser_click`
@@ -228,12 +233,13 @@ The MCP server includes powerful browser automation capabilities via WebSocket c
 ### Browser Control Workflow Example
 
 ```
-1. Browser_connect(browserId: "myBrowser")
-2. Browser_waitForElement(browserId: "myBrowser", selector: {type: "id", value: "login-form"})
-3. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "username"}, text: "user@example.com")
-4. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "password"}, text: "secretpass")
-5. Browser_click(browserId: "myBrowser", selector: {type: "text", value: "Sign In", tagName: "button"})
-6. Browser_evaluate(browserId: "myBrowser", expression: "window.location.href")
+1. Browser_list() // Check existing connections first
+2. Browser_connect(browserId: "myBrowser")
+3. Browser_waitForElement(browserId: "myBrowser", selector: {type: "id", value: "login-form"})
+4. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "username"}, text: "user@example.com")
+5. Browser_input(browserId: "myBrowser", selector: {type: "id", value: "password"}, text: "secretpass")
+6. Browser_click(browserId: "myBrowser", selector: {type: "text", value: "Sign In", tagName: "button"})
+7. Browser_evaluate(browserId: "myBrowser", expression: "window.location.href")
 ```
 
 ### Advanced Browser Automation
