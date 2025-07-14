@@ -54,7 +54,7 @@ Add this server to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "remote-example": {
+    "bun-inspect-mcp": {
       "command": "bunx",
       "args": [
         "mcp-remote",
