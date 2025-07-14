@@ -1115,33 +1115,33 @@ mcp.registerTool(
     }
   )
 
-mcp.registerTool(
-    "Browser_getPageInfo",
-    {
-      title: "Get Browser Page Information",
-      description: "Retrieves comprehensive information about the current page in the connected browser including URL, title, viewport dimensions, and ready state. Useful for verification, debugging, and understanding the current browser context. The browser must be connected via Browser_connect first.",
-      inputSchema: {
-        browserId: z.string().describe("Browser connection ID from Browser_connect")
-      },
-    },
-    async ({ browserId }) => {
-      const connection = browserConnections.get(browserId);
-      if (!connection || !connection.connected) {
-        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
-      }
-      
-      const result = await connection.rpc.getPageInfo();
-      
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(result, null, 2)
-          },
-        ],
-      };
-    }
-  )
+// mcp.registerTool(
+//     "Browser_getPageInfo",
+//     {
+//       title: "Get Browser Page Information",
+//       description: "Retrieves comprehensive information about the current page in the connected browser including URL, title, viewport dimensions, and ready state. Useful for verification, debugging, and understanding the current browser context. The browser must be connected via Browser_connect first.",
+//       inputSchema: {
+//         browserId: z.string().describe("Browser connection ID from Browser_connect")
+//       },
+//     },
+//     async ({ browserId }) => {
+//       const connection = browserConnections.get(browserId);
+//       if (!connection || !connection.connected) {
+//         throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+//       }
+//       
+//       const result = await connection.rpc.getPageInfo();
+//       
+//       return {
+//         content: [
+//           {
+//             type: "text" as const,
+//             text: JSON.stringify(result, null, 2)
+//           },
+//         ],
+//       };
+//     }
+//   )
 
 mcp.registerTool(
     "Browser_disconnect",
