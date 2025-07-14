@@ -987,6 +987,8 @@ mcp.registerTool(
         text,
         clear
       });
+
+    console.log({result})
       
       return {
         content: [
@@ -1342,8 +1344,9 @@ app.get(
         // Server exposes serverFunctions, and gets back an rpc object to call BrowserFunctions
         const serverFunctions = createServerFunctions(connectionId);
         
-        // Store the handler reference
-        let messageHandler: ((data: any) => void) | null = null;
+        // First set up the handler storage and buffer
+        (ws as any).messageHandler = null;
+        (ws as any).bufferedMessages = [];
         
         connection.rpc = createBirpc<BrowserFunctions, typeof serverFunctions>(serverFunctions, {
           post: (data) => {
@@ -1352,38 +1355,40 @@ app.get(
             }
           },
           on: (handler) => {
-            messageHandler = handler;
             (ws as any).messageHandler = handler;
+            
+            // Process any buffered messages immediately when handler is set
+            if ((ws as any).bufferedMessages) {
+              console.log(`[Browser Control] Processing ${(ws as any).bufferedMessages.length} buffered messages`);
+              for (const msg of (ws as any).bufferedMessages) {
+                handler(msg);
+              }
+              delete (ws as any).bufferedMessages;
+            }
           },
           serialize: (data) => JSON.stringify(data),
           deserialize: (data) => JSON.parse(data),
         });
-        
-        // Process any buffered messages if handler was set
-        if ((ws as any).messageHandler && (ws as any).bufferedMessages) {
-          const handler = (ws as any).messageHandler as (data: any) => void;
-          for (const msg of (ws as any).bufferedMessages) {
-            handler(msg);
-          }
-          delete (ws as any).bufferedMessages;
-        }
         
         console.log(`[Browser Control] Connected as ${connectionId}`);
       },
       
       onMessage(event, ws) {
         console.log('[Browser Control] Received message:', event.data);
-        const handler = (ws as any).messageHandler;
-        if (handler && typeof event.data === 'string') {
-          console.log('[Browser Control] Passing message to handler');
-          handler(event.data);
-        } else if (typeof event.data === 'string') {
-          // Buffer messages that arrive before handler is ready
-          if (!(ws as any).bufferedMessages) {
-            (ws as any).bufferedMessages = [];
+        
+        if (typeof event.data === 'string') {
+          const handler = (ws as any).messageHandler;
+          if (handler) {
+            console.log('[Browser Control] Passing message to handler');
+            handler(event.data);
+          } else {
+            // Buffer messages that arrive before handler is ready
+            if (!(ws as any).bufferedMessages) {
+              (ws as any).bufferedMessages = [];
+            }
+            (ws as any).bufferedMessages.push(event.data);
+            console.log('[Browser Control] Buffering message, handler not ready yet');
           }
-          (ws as any).bufferedMessages.push(event.data);
-          console.log('[Browser Control] Buffering message, handler not ready yet');
         } else {
           console.log('[Browser Control] Ignoring non-string message');
         }
