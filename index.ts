@@ -358,9 +358,15 @@ const createServerFunctions = (connectionId: string) => ({
         connection.url = data.url;
       }
     }
+    
+    // Return success
+    return { success: true, message: `Event ${type} received` };
   },
   reportError: async ({ error, stack }: { error: string; stack?: string }) => {
     console.error(`[Browser Error] from ${connectionId}:`, error, stack);
+    
+    // Return acknowledgment
+    return { success: true, message: 'Error reported' };
   },
 });
 
@@ -1332,6 +1338,10 @@ app.get(
         // Create birpc instance
         // Server exposes serverFunctions, and gets back an rpc object to call BrowserFunctions
         const serverFunctions = createServerFunctions(connectionId);
+        
+        // Store the handler reference
+        let messageHandler: ((data: any) => void) | null = null;
+        
         connection.rpc = createBirpc<BrowserFunctions, typeof serverFunctions>(serverFunctions, {
           post: (data) => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -1339,11 +1349,20 @@ app.get(
             }
           },
           on: (handler) => {
+            messageHandler = handler;
             (ws as any).messageHandler = handler;
           },
           serialize: (data) => JSON.stringify(data),
           deserialize: (data) => JSON.parse(data),
         });
+        
+        // Process any buffered messages if handler was set
+        if (messageHandler && (ws as any).bufferedMessages) {
+          for (const msg of (ws as any).bufferedMessages) {
+            messageHandler(msg);
+          }
+          delete (ws as any).bufferedMessages;
+        }
         
         console.log(`[Browser Control] Connected as ${connectionId}`);
       },
@@ -1352,6 +1371,13 @@ app.get(
         const handler = (ws as any).messageHandler;
         if (handler && typeof event.data === 'string') {
           handler(event.data);
+        } else if (typeof event.data === 'string') {
+          // Buffer messages that arrive before handler is ready
+          if (!(ws as any).bufferedMessages) {
+            (ws as any).bufferedMessages = [];
+          }
+          (ws as any).bufferedMessages.push(event.data);
+          console.log('[Browser Control] Buffering message, handler not ready yet');
         }
       },
       

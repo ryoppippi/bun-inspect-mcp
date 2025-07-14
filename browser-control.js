@@ -308,6 +308,10 @@
             url: window.location.href,
             userAgent: navigator.userAgent
           }
+        }).then(() => {
+          console.log('[BunInspectorMCP] Successfully notified server of connection');
+        }).catch((error) => {
+          console.error('[BunInspectorMCP] Failed to notify server:', error);
         });
       }
     });
