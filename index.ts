@@ -1358,11 +1358,8 @@ app.get(
       onClose(event, ws) {
         const connectionId = (ws as any).connectionId;
         if (connectionId) {
-          const connection = browserConnections.get(connectionId);
-          if (connection) {
-            connection.connected = false;
-            console.log(`[Browser Control] Disconnected: ${connectionId}`);
-          }
+          browserConnections.delete(connectionId);
+          console.log(`[Browser Control] Disconnected and removed: ${connectionId}`);
         }
       },
       
