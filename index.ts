@@ -349,6 +349,7 @@ interface BrowserFunctions {
 // Create server functions for a specific connection
 const createServerFunctions = (connectionId: string) => ({
   notifyEvent: async ({ type, data }: { type: string; data: any }) => {
+    console.log(`[Browser Event] notifyEvent called for ${connectionId}`);
     console.log(`[Browser Event] ${type}:`, data);
     
     // Update connection info when browser connects
@@ -356,6 +357,7 @@ const createServerFunctions = (connectionId: string) => ({
       const connection = browserConnections.get(connectionId);
       if (connection) {
         connection.url = data.url;
+        console.log(`[Browser Event] Updated URL for ${connectionId}: ${data.url}`);
       }
     }
     
@@ -363,6 +365,7 @@ const createServerFunctions = (connectionId: string) => ({
     return { success: true, message: `Event ${type} received` };
   },
   reportError: async ({ error, stack }: { error: string; stack?: string }) => {
+    console.error(`[Browser Error] reportError called for ${connectionId}`);
     console.error(`[Browser Error] from ${connectionId}:`, error, stack);
     
     // Return acknowledgment
@@ -1368,8 +1371,10 @@ app.get(
       },
       
       onMessage(event, ws) {
+        console.log('[Browser Control] Received message:', event.data);
         const handler = (ws as any).messageHandler;
         if (handler && typeof event.data === 'string') {
+          console.log('[Browser Control] Passing message to handler');
           handler(event.data);
         } else if (typeof event.data === 'string') {
           // Buffer messages that arrive before handler is ready
@@ -1378,6 +1383,8 @@ app.get(
           }
           (ws as any).bufferedMessages.push(event.data);
           console.log('[Browser Control] Buffering message, handler not ready yet');
+        } else {
+          console.log('[Browser Control] Ignoring non-string message');
         }
       },
       
