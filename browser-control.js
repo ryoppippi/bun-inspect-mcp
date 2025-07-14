@@ -10,7 +10,7 @@
   
   // Configuration - check for data-ws-url attribute on script tag
   const scriptTag = document.currentScript || document.querySelector('script[src*="browser-control.js"]');
-  const WS_URL = scriptTag?.dataset?.wsUrl || scriptTag?.getAttribute('data-ws-url') || 'ws://localhost:4001';
+  const WS_URL = scriptTag?.dataset?.wsUrl || scriptTag?.getAttribute('data-ws-url') || 'ws://localhost:4000/_ws_browser';
   const RECONNECT_DELAY = 3000;
   
   console.log(`[BunInspectorMCP] Using WebSocket URL: ${WS_URL}`);

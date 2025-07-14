@@ -1,15 +1,17 @@
 #!/usr/bin/env bun
 
+import type { JSC } from './types.ts'
+import type { ServerWebSocket } from 'bun'
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Hono } from "hono";
 import { StreamableHTTPTransport } from "@hono/mcp";
+import { createBunWebSocket } from 'hono/bun'
 import { z } from "zod/v3";
 import { createBirpc } from "birpc";
 import { remoteObjectToString } from "./preview";
-import type { JSC } from './types.ts'
 
 interface Message {
   id?: number;
@@ -1252,6 +1254,86 @@ app.all("/mcp", async c => {
   return transport.handleRequest(c);
 });
 
+const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket>()
+
+// WebSocket endpoint for browser control
+app.get(
+  "/_ws_browser",
+  upgradeWebSocket(() => {
+    return {
+      onOpen(event, ws) {
+        console.log("[Browser Control] New WebSocket connection");
+        
+        // Find pending connection or create new one
+        let connectionId: string | null = null;
+        for (const [id, conn] of browserConnections) {
+          if (!conn.connected) {
+            connectionId = id;
+            break;
+          }
+        }
+        
+        if (!connectionId) {
+          console.log("[Browser Control] No pending connection found, creating new one");
+          connectionId = `browser-${Date.now()}`;
+          browserConnections.set(connectionId, {
+            id: connectionId,
+            ws: null,
+            rpc: null,
+            url: "",
+            connected: false
+          });
+        }
+        
+        const connection = browserConnections.get(connectionId)!;
+        connection.ws = ws;
+        connection.connected = true;
+        
+        // Store connection ID in WebSocket context
+        (ws as any).connectionId = connectionId;
+        
+        // Create birpc instance
+        connection.rpc = createBirpc<BrowserFunctions>(serverFunctions, {
+          post: (data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(data);
+            }
+          },
+          on: (handler) => {
+            (ws as any).messageHandler = handler;
+          },
+          serialize: (data) => JSON.stringify(data),
+          deserialize: (data) => JSON.parse(data),
+        });
+        
+        console.log(`[Browser Control] Connected as ${connectionId}`);
+      },
+      
+      onMessage(event, ws) {
+        const handler = (ws as any).messageHandler;
+        if (handler && typeof event.data === 'string') {
+          handler(event.data);
+        }
+      },
+      
+      onClose(event, ws) {
+        const connectionId = (ws as any).connectionId;
+        if (connectionId) {
+          const connection = browserConnections.get(connectionId);
+          if (connection) {
+            connection.connected = false;
+            console.log(`[Browser Control] Disconnected: ${connectionId}`);
+          }
+        }
+      },
+      
+      onError(event, ws) {
+        console.error("[Browser Control] WebSocket error:", event);
+      },
+    };
+  })
+);
+
 
 const url = "unix://" + randomUnixPath();
 const socketPromise = connect(url);
@@ -1381,89 +1463,10 @@ session.addEventListener("Debugger.scriptParsed", (params: JSC.Debugger.ScriptPa
 const port = 4000;
 console.log(`MCP server listening on http://localhost:${port}/mcp`);
 
-// Start main MCP server
-const server = Bun.serve({
+Bun.serve({
   fetch: app.fetch,
+  websocket,
   port,
 });
 
-// Start WebSocket server for browser control on port 4001
-const browserWsServer = Bun.serve({
-  port: 4001,
-  fetch(req, server) {
-    // Handle WebSocket upgrade
-    if (server.upgrade(req)) {
-      return; // Return nothing if upgrade succeeds
-    }
-    // Return 426 if upgrade fails
-    return new Response("WebSocket required", { status: 426 });
-  },
-  websocket: {
-    async open(ws) {
-      console.log("[Browser Control] New WebSocket connection");
-      
-      // Find pending connection
-      let connectionId: string | null = null;
-      for (const [id, conn] of browserConnections) {
-        if (!conn.connected) {
-          connectionId = id;
-          break;
-        }
-      }
-      
-      if (!connectionId) {
-        console.log("[Browser Control] No pending connection found, creating new one");
-        connectionId = `browser-${Date.now()}`;
-        browserConnections.set(connectionId, {
-          id: connectionId,
-          ws: null,
-          rpc: null,
-          url: "",
-          connected: false
-        });
-      }
-      
-      const connection = browserConnections.get(connectionId)!;
-      connection.ws = ws;
-      connection.connected = true;
-      
-      // Create birpc instance
-      connection.rpc = createBirpc<BrowserFunctions>(serverFunctions, {
-        post: (data) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(data);
-          }
-        },
-        on: (handler) => {
-          ws.data = { handler, connectionId };
-        },
-        serialize: (data) => JSON.stringify(data),
-        deserialize: (data) => JSON.parse(data),
-      });
-      
-      console.log(`[Browser Control] Connected as ${connectionId}`);
-    },
-    
-    async message(ws, message) {
-      if (ws.data?.handler) {
-        ws.data.handler(message);
-      }
-    },
-    
-    async close(ws) {
-      if (ws.data?.connectionId) {
-        const connection = browserConnections.get(ws.data.connectionId);
-        if (connection) {
-          connection.connected = false;
-          console.log(`[Browser Control] Disconnected: ${ws.data.connectionId}`);
-        }
-      }
-    },
-    
-    async error(ws, error) {
-      console.error("[Browser Control] WebSocket error:", error);
-    },
-  },
-});
-
-console.log(`Browser control WebSocket server listening on ws://localhost:4001`);
+console.log(`Browser control WebSocket available at ws://localhost:${port}/_ws_browser`);

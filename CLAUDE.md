@@ -164,7 +164,7 @@ These tools work together to provide full debugging capabilities:
 
 ## Browser Control Tools
 
-The MCP server includes powerful browser automation capabilities via WebSocket connection. These tools allow you to remotely control any browser that has loaded the `browser-control.js` script.
+The MCP server includes powerful browser automation capabilities via WebSocket connection at `/_ws_browser` endpoint. These tools allow you to remotely control any browser that has loaded the `browser-control.js` script.
 
 ### Setup
 

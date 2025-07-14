@@ -141,7 +141,7 @@ Add this server to your Claude Desktop configuration:
 
 ## Browser Control
 
-The MCP server includes a WebSocket server on port 4001 that enables remote browser control. This allows you to automate browser interactions, extract data, and test web applications.
+The MCP server includes a WebSocket endpoint at `/_ws_browser` that enables remote browser control. This allows you to automate browser interactions, extract data, and test web applications.
 
 ### Setting up Browser Control
 
@@ -163,7 +163,7 @@ The MCP server includes a WebSocket server on port 4001 that enables remote brow
    ```html
    <!-- Connect to a different host/port -->
    <script src="https://cdn.jsdelivr.net/gh/ryoppippi/bun-inspect-mcp/browser-control.js" 
-           data-ws-url="ws://192.168.1.100:4001"></script>
+           data-ws-url="ws://192.168.1.100:4000/_ws_browser"></script>
    ```
 
 2. **Connect from MCP:**
