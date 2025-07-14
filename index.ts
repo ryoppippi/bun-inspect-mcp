@@ -7,6 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Hono } from "hono";
 import { StreamableHTTPTransport } from "@hono/mcp";
 import { z } from "zod/v3";
+import { createBirpc } from "birpc";
 import { remoteObjectToString } from "./preview";
 import type { JSC } from './types.ts'
 
@@ -319,6 +320,39 @@ interface BackendConsoleMessage {
   url?: string;
 }
 const backendConsoleLogs: BackendConsoleMessage[] = [];
+
+// Browser control types
+interface BrowserConnection {
+  id: string;
+  ws: any;
+  rpc: any;
+  url: string;
+  connected: boolean;
+}
+
+// Active browser connections
+const browserConnections = new Map<string, BrowserConnection>();
+
+// Browser RPC functions that MCP can call
+interface BrowserFunctions {
+  findElement: (params: { type: string; value: string; tagName?: string }) => Promise<any>;
+  clickElement: (params: { type: string; value: string; tagName?: string; options?: any }) => Promise<any>;
+  inputText: (params: { type: string; value: string; tagName?: string; text: string; clear?: boolean }) => Promise<any>;
+  evaluate: (params: { expression: string }) => Promise<any>;
+  getElements: (params: { selector: string; limit?: number }) => Promise<any>;
+  waitForElement: (params: { type: string; value: string; tagName?: string; timeout?: number }) => Promise<any>;
+  getPageInfo: () => Promise<any>;
+}
+
+// Server functions that browser can call
+const serverFunctions = {
+  notifyEvent: async ({ type, data }: { type: string; data: any }) => {
+    console.log(`[Browser Event] ${type}:`, data);
+  },
+  reportError: async ({ error, stack }: { error: string; stack?: string }) => {
+    console.error(`[Browser Error]:`, error, stack);
+  },
+};
 
 mcp.registerTool(
     "Runtime_evaluate",
@@ -748,6 +782,338 @@ mcp.registerTool(
 )
 
 mcp.registerTool(
+    "Browser_connect",
+    {
+      title: "Connect to Browser for Control",
+      description: "Establishes a WebSocket connection to a browser that has loaded the browser-control.js script. This enables remote control of browser elements, JavaScript evaluation, and DOM manipulation. The browser must have the control script loaded first (either via script tag or console). Once connected, you can click elements, input text, evaluate JavaScript, and monitor page state. The connection persists until explicitly disconnected or the browser closes.",
+      inputSchema: {
+        browserId: z.string().describe("Unique identifier for this browser connection. Use this ID to reference the connection in other browser control commands"),
+        waitForConnection: z.boolean().optional().default(true).describe("Wait for browser to connect (true) or return immediately (false). When true, waits up to 10 seconds for connection")
+      },
+    },
+    async ({ browserId, waitForConnection }) => {
+      // Check if already connected
+      if (browserConnections.has(browserId)) {
+        const conn = browserConnections.get(browserId)!;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                connected: conn.connected,
+                browserId,
+                url: conn.url,
+                message: "Already connected to this browser"
+              }, null, 2)
+            },
+          ],
+        };
+      }
+      
+      // Create connection placeholder
+      const connection: BrowserConnection = {
+        id: browserId,
+        ws: null,
+        rpc: null,
+        url: "",
+        connected: false
+      };
+      browserConnections.set(browserId, connection);
+      
+      if (waitForConnection) {
+        // Wait for connection (up to 10 seconds)
+        const startTime = Date.now();
+        while (Date.now() - startTime < 10000) {
+          if (connection.connected) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    connected: true,
+                    browserId,
+                    url: connection.url,
+                    message: "Successfully connected to browser"
+                  }, null, 2)
+                },
+              ],
+            };
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Timeout
+        browserConnections.delete(browserId);
+        throw new Error("Timeout waiting for browser connection. Make sure the browser has loaded the control script.");
+      }
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              connected: false,
+              browserId,
+              message: "Browser connection initialized. Waiting for browser to connect...",
+              instructions: "Load the browser-control.js script in your browser to establish connection"
+            }, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_click",
+    {
+      title: "Click Element in Browser",
+      description: "Clicks an element in the connected browser using various selector types. Supports finding elements by ID, text content, CSS selector, or XPath. Can specify click coordinates and other mouse event options. The browser must be connected via Browser_connect first. Perfect for automating user interactions, testing UI flows, and triggering events.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect"),
+        selector: z.object({
+          type: z.enum(["id", "text", "css", "xpath"]).describe("Type of selector to use"),
+          value: z.string().describe("Selector value (e.g., 'submit-button' for ID, 'Submit' for text, '.btn-primary' for CSS)"),
+          tagName: z.string().optional().describe("Optional tag name filter when using text selector (e.g., 'button', 'a')")
+        }).describe("Element selector specification"),
+        options: z.object({
+          x: z.number().optional().describe("X coordinate for click (relative to element)"),
+          y: z.number().optional().describe("Y coordinate for click (relative to element)"),
+          button: z.number().optional().describe("Mouse button (0=left, 1=middle, 2=right)"),
+          ctrlKey: z.boolean().optional().describe("Hold Ctrl key during click"),
+          shiftKey: z.boolean().optional().describe("Hold Shift key during click"),
+          altKey: z.boolean().optional().describe("Hold Alt key during click"),
+          metaKey: z.boolean().optional().describe("Hold Meta/Cmd key during click")
+        }).optional().describe("Click event options")
+      },
+    },
+    async ({ browserId, selector, options }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.clickElement({
+        type: selector.type,
+        value: selector.value,
+        tagName: selector.tagName,
+        options
+      });
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_input",
+    {
+      title: "Input Text in Browser Element",
+      description: "Types text into an input field, textarea, or contenteditable element in the connected browser. Automatically focuses the element, can clear existing content, and triggers appropriate input/change events. Supports all standard form inputs and rich text editors. The browser must be connected via Browser_connect first.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect"),
+        selector: z.object({
+          type: z.enum(["id", "text", "css", "xpath"]).describe("Type of selector to use"),
+          value: z.string().describe("Selector value"),
+          tagName: z.string().optional().describe("Optional tag name filter when using text selector")
+        }).describe("Element selector specification"),
+        text: z.string().describe("Text to input into the element"),
+        clear: z.boolean().optional().default(true).describe("Clear existing content before typing (default: true)")
+      },
+    },
+    async ({ browserId, selector, text, clear }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.inputText({
+        type: selector.type,
+        value: selector.value,
+        tagName: selector.tagName,
+        text,
+        clear
+      });
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_evaluate",
+    {
+      title: "Evaluate JavaScript in Browser",
+      description: "Executes arbitrary JavaScript code in the connected browser's context with full access to the DOM, window object, and all browser APIs. Returns the evaluation result. Can be used for complex automation, data extraction, or any custom browser manipulation. The browser must be connected via Browser_connect first. Use with caution as it has full access to the page.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect"),
+        expression: z.string().describe("JavaScript expression to evaluate in browser context. Has full access to document, window, and all browser APIs")
+      },
+    },
+    async ({ browserId, expression }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.evaluate({ expression });
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_getElements",
+    {
+      title: "Query Elements in Browser",
+      description: "Queries the DOM for elements matching a CSS selector and returns detailed information about each match including attributes, text content, position, and size. Useful for inspecting page structure, verifying element presence, or gathering data from multiple elements. The browser must be connected via Browser_connect first.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect"),
+        selector: z.string().describe("CSS selector to query elements (e.g., '.btn', '#header', 'input[type=email]')"),
+        limit: z.number().optional().default(10).describe("Maximum number of elements to return (default: 10)")
+      },
+    },
+    async ({ browserId, selector, limit }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.getElements({ selector, limit });
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_waitForElement",
+    {
+      title: "Wait for Element to Appear",
+      description: "Waits for an element to appear in the DOM before proceeding. Useful for handling dynamic content, AJAX responses, or animations. Polls for the element's presence and returns once found or timeout is reached. The browser must be connected via Browser_connect first.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect"),
+        selector: z.object({
+          type: z.enum(["id", "text", "css", "xpath"]).describe("Type of selector to use"),
+          value: z.string().describe("Selector value"),
+          tagName: z.string().optional().describe("Optional tag name filter when using text selector")
+        }).describe("Element selector specification"),
+        timeout: z.number().optional().default(5000).describe("Maximum time to wait in milliseconds (default: 5000)")
+      },
+    },
+    async ({ browserId, selector, timeout }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.waitForElement({
+        type: selector.type,
+        value: selector.value,
+        tagName: selector.tagName,
+        timeout
+      });
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_getPageInfo",
+    {
+      title: "Get Browser Page Information",
+      description: "Retrieves comprehensive information about the current page in the connected browser including URL, title, viewport dimensions, and ready state. Useful for verification, debugging, and understanding the current browser context. The browser must be connected via Browser_connect first.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID from Browser_connect")
+      },
+    },
+    async ({ browserId }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection || !connection.connected) {
+        throw new Error(`Browser ${browserId} is not connected. Use Browser_connect first.`);
+      }
+      
+      const result = await connection.rpc.getPageInfo();
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
+    "Browser_disconnect",
+    {
+      title: "Disconnect Browser Control",
+      description: "Closes the WebSocket connection to a connected browser and cleans up resources. Use this when you're done controlling a browser to free up connections. The browser-side script will attempt to reconnect automatically unless the page is closed.",
+      inputSchema: {
+        browserId: z.string().describe("Browser connection ID to disconnect")
+      },
+    },
+    async ({ browserId }) => {
+      const connection = browserConnections.get(browserId);
+      if (!connection) {
+        throw new Error(`Browser ${browserId} not found`);
+      }
+      
+      if (connection.ws) {
+        connection.ws.close();
+      }
+      
+      browserConnections.delete(browserId);
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              success: true,
+              browserId,
+              message: "Browser disconnected successfully"
+            }, null, 2)
+          },
+        ],
+      };
+    }
+  )
+
+mcp.registerTool(
     "Console_getBackendLogs",
     {
       title: "Retrieve Backend Console Logs",
@@ -1015,7 +1381,89 @@ session.addEventListener("Debugger.scriptParsed", (params: JSC.Debugger.ScriptPa
 const port = 4000;
 console.log(`MCP server listening on http://localhost:${port}/mcp`);
 
-Bun.serve({
+// Start main MCP server
+const server = Bun.serve({
   fetch: app.fetch,
   port,
-})
+});
+
+// Start WebSocket server for browser control on port 4001
+const browserWsServer = Bun.serve({
+  port: 4001,
+  fetch(req, server) {
+    // Handle WebSocket upgrade
+    if (server.upgrade(req)) {
+      return; // Return nothing if upgrade succeeds
+    }
+    // Return 426 if upgrade fails
+    return new Response("WebSocket required", { status: 426 });
+  },
+  websocket: {
+    async open(ws) {
+      console.log("[Browser Control] New WebSocket connection");
+      
+      // Find pending connection
+      let connectionId: string | null = null;
+      for (const [id, conn] of browserConnections) {
+        if (!conn.connected) {
+          connectionId = id;
+          break;
+        }
+      }
+      
+      if (!connectionId) {
+        console.log("[Browser Control] No pending connection found, creating new one");
+        connectionId = `browser-${Date.now()}`;
+        browserConnections.set(connectionId, {
+          id: connectionId,
+          ws: null,
+          rpc: null,
+          url: "",
+          connected: false
+        });
+      }
+      
+      const connection = browserConnections.get(connectionId)!;
+      connection.ws = ws;
+      connection.connected = true;
+      
+      // Create birpc instance
+      connection.rpc = createBirpc<BrowserFunctions>(serverFunctions, {
+        post: (data) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
+        },
+        on: (handler) => {
+          ws.data = { handler, connectionId };
+        },
+        serialize: (data) => JSON.stringify(data),
+        deserialize: (data) => JSON.parse(data),
+      });
+      
+      console.log(`[Browser Control] Connected as ${connectionId}`);
+    },
+    
+    async message(ws, message) {
+      if (ws.data?.handler) {
+        ws.data.handler(message);
+      }
+    },
+    
+    async close(ws) {
+      if (ws.data?.connectionId) {
+        const connection = browserConnections.get(ws.data.connectionId);
+        if (connection) {
+          connection.connected = false;
+          console.log(`[Browser Control] Disconnected: ${ws.data.connectionId}`);
+        }
+      }
+    },
+    
+    async error(ws, error) {
+      console.error("[Browser Control] WebSocket error:", error);
+    },
+  },
+});
+
+console.log(`Browser control WebSocket server listening on ws://localhost:4001`);
